@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { CASE_STATUS, findCase, formatSchedule, statusLabel } from '../../lib/cases/caseStore'
+import { CASE_STATUS, findCase } from '../../lib/cases/caseStore'
+import { useI18n } from '../../i18n/I18nProvider.jsx'
 
 function statusTone(status) {
   if (status === CASE_STATUS.heard) return 'border-emerald-700/25 bg-emerald-50 text-emerald-900'
@@ -19,6 +20,22 @@ export function WelcomeDocket({
   const [pinInput, setPinInput] = useState('')
   const [pinError, setPinError] = useState('')
   const [lookupMiss, setLookupMiss] = useState(false)
+  const { t } = useI18n()
+
+  const hearingTime = (record) => {
+    if (!record?.schedule?.dayLabel) return t('docket.noTime')
+    return t('docket.atTime', {
+      day: record.schedule.dayLabel,
+      slot: record.schedule.slot,
+    })
+  }
+
+  const fileStatus = (record) => {
+    if (record.status === CASE_STATUS.heard) return t('status.heard')
+    if (record.status === CASE_STATUS.scheduled) return t('status.scheduled')
+    if (record.status === CASE_STATUS.ready) return t('status.ready')
+    return t('status.file')
+  }
 
   const query = caseIdInput.trim().toUpperCase()
   const filtered = useMemo(() => {
@@ -36,7 +53,7 @@ export function WelcomeDocket({
       setSelectedId(record.id)
       setPinError('')
       if (pinInput !== record.pin) {
-        setPinError(pinInput ? 'PIN does not match this sealed file.' : '')
+        setPinError(pinInput ? t('docket.pinError') : '')
         return
       }
     }
@@ -86,7 +103,7 @@ export function WelcomeDocket({
             onCaseIdInput(e.target.value)
             setLookupMiss(false)
           }}
-          placeholder="Search or enter Case ID — e.g. VER-NS-2048"
+          placeholder={t('docket.search')}
           className="flex-1 rounded-lg border border-amber-900/20 bg-white px-3 py-2.5 font-mono text-sm text-slate-800 outline-none placeholder:text-slate-400 focus:ring-2 focus:ring-amber-700/30"
         />
         <button
@@ -94,20 +111,19 @@ export function WelcomeDocket({
           onClick={lookupTyped}
           className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
         >
-          Look up
+          {t('docket.lookup')}
         </button>
       </div>
 
       {lookupMiss && (
         <div className="mt-4 rounded-lg border border-amber-800/20 bg-amber-50 px-4 py-3 text-sm text-slate-700">
-          No case matches <span className="font-mono font-semibold">{query || 'that ID'}</span>.
-          You can start a new file with this ID.
+          {t('docket.noMatch', { id: query || t('docket.thatId') })}
           <button
             type="button"
             onClick={() => onCreateNew(caseIdInput)}
             className="ml-2 font-medium text-amber-950 underline"
           >
-            Create new case
+            {t('docket.create')}
           </button>
         </div>
       )}
@@ -116,7 +132,7 @@ export function WelcomeDocket({
         <ul className="max-h-72 space-y-2 overflow-auto pr-1">
           {filtered.length === 0 && (
             <li className="rounded-lg border border-amber-900/10 bg-white px-3 py-3 text-sm text-slate-500">
-              No files in this search.
+              {t('docket.noFiles')}
             </li>
           )}
           {filtered.map((record) => (
@@ -144,14 +160,14 @@ export function WelcomeDocket({
                       record.status,
                     )}`}
                   >
-                    {record.sealed ? 'Sealed · ' : ''}
-                    {statusLabel(record.status)}
+                    {record.sealed ? t('docket.sealed') : ''}
+                    {fileStatus(record)}
                   </span>
                 </div>
                 <p className="mt-1 text-xs text-slate-600">
                   {record.party1Name} v. {record.party2Name}
                 </p>
-                <p className="mt-0.5 text-xs text-slate-500">{formatSchedule(record)}</p>
+                <p className="mt-0.5 text-xs text-slate-500">{hearingTime(record)}</p>
               </button>
             </li>
           ))}
@@ -160,7 +176,7 @@ export function WelcomeDocket({
         <div className="rounded-lg border border-amber-900/12 bg-[#faf6ee]/80 p-4">
           {!selected ? (
             <p className="text-sm text-slate-500">
-              Select a file from the list, or look up an ID.
+              {t('docket.select')}
             </p>
           ) : (
             <>
@@ -174,13 +190,13 @@ export function WelcomeDocket({
               </p>
               <p className="mt-2 text-sm text-slate-600">{selected.summary}</p>
               <p className="mt-3 text-sm font-medium text-slate-800">
-                {formatSchedule(selected)}
+                {hearingTime(selected)}
               </p>
 
               {selected.sealed && (
                 <div className="mt-4">
                   <label className="mb-1.5 block text-xs font-semibold tracking-wider text-slate-500">
-                    Sealed file PIN
+                    {t('docket.pin')}
                   </label>
                   <input
                     type="password"
@@ -189,7 +205,7 @@ export function WelcomeDocket({
                       setPinInput(e.target.value)
                       setPinError('')
                     }}
-                    placeholder="4-digit PIN"
+                    placeholder={t('docket.pinPlaceholder')}
                     className="w-full rounded-lg border border-amber-900/20 bg-white px-3 py-2 font-mono text-sm outline-none focus:ring-2 focus:ring-amber-700/30"
                   />
                   {pinError && (
@@ -205,7 +221,7 @@ export function WelcomeDocket({
                     onClick={() => tryOpen(selected, 'verdict')}
                     className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
                   >
-                    View saved verdict
+                    {t('docket.viewVerdict')}
                   </button>
                 ) : (
                   <>
@@ -214,14 +230,14 @@ export function WelcomeDocket({
                       onClick={() => tryOpen(selected, 'setup')}
                       className="rounded-lg bg-slate-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-slate-800"
                     >
-                      Open in setup
+                      {t('docket.openSetup')}
                     </button>
                     <button
                       type="button"
                       onClick={() => tryOpen(selected, 'hearing')}
                       className="rounded-lg border border-amber-900/20 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-amber-50"
                     >
-                      Start hearing now
+                      {t('docket.startHearing')}
                     </button>
                   </>
                 )}

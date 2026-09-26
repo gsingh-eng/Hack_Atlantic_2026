@@ -1,3 +1,5 @@
+import { useI18n } from '../../i18n/I18nProvider.jsx'
+
 export function BookScreen({
   bookingDays,
   selectedDayKey,
@@ -16,6 +18,7 @@ export function BookScreen({
   onSubmit,
   onContinueSetup,
 }) {
+  const { t } = useI18n()
   return (
     <section className="animate-verdict-in w-full">
       <div className="rounded-2xl border border-amber-900/15 bg-[#faf6ee]/90 p-6 shadow-[0_20px_50px_-28px_rgba(80,60,20,0.35)] sm:p-8 lg:p-10">
@@ -24,14 +27,12 @@ export function BookScreen({
           onClick={onBack}
           className="mb-4 text-xs text-slate-500 hover:text-slate-800"
         >
-          ← Back
+          {t('queue.back')}
         </button>
         <h2 className="font-display text-3xl font-semibold text-slate-900 lg:text-4xl">
-          Book Available Judge Slots
+          {t('book.title')}
         </h2>
-        <p className="mt-2 max-w-2xl text-sm text-slate-600">
-          Hearings are offered a few days each week with limited daily slots.
-        </p>
+        <p className="mt-2 max-w-2xl text-sm text-slate-600">{t('book.lead')}</p>
 
         {!bookingConfirmed ? (
           <form
@@ -40,7 +41,7 @@ export function BookScreen({
           >
             <div>
               <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Available days
+                {t('book.days')}
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 {bookingDays.map((day) => (
@@ -63,7 +64,7 @@ export function BookScreen({
               </div>
 
               <p className="mb-3 mt-6 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Time slots
+                {t('book.slots')}
               </p>
               <div className="flex flex-wrap gap-2">
                 {(
@@ -88,11 +89,11 @@ export function BookScreen({
 
             <div className="space-y-4 rounded-2xl border border-amber-900/15 bg-white/75 p-5 shadow-sm">
               <p className="text-xs font-semibold uppercase tracking-wider text-amber-800">
-                Your details
+                {t('book.details')}
               </p>
               <input
                 required
-                placeholder="Full name"
+                placeholder={t('book.name')}
                 value={intakeName}
                 onChange={(e) => setIntakeName(e.target.value)}
                 className="w-full rounded-xl border border-amber-900/20 bg-white px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-amber-700/50 focus:ring-2 focus:ring-amber-700/20"
@@ -100,14 +101,14 @@ export function BookScreen({
               <input
                 required
                 type="email"
-                placeholder="Email for confirmation"
+                placeholder={t('book.email')}
                 value={intakeEmail}
                 onChange={(e) => setIntakeEmail(e.target.value)}
                 className="w-full rounded-xl border border-amber-900/20 bg-white px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-amber-700/50 focus:ring-2 focus:ring-amber-700/20"
               />
               <textarea
                 rows={3}
-                placeholder="Brief dispute summary"
+                placeholder={t('book.summary')}
                 value={intakeDispute}
                 onChange={(e) => setIntakeDispute(e.target.value)}
                 className="w-full rounded-xl border border-amber-900/20 bg-white px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-amber-700/50 focus:ring-2 focus:ring-amber-700/20"
@@ -117,33 +118,36 @@ export function BookScreen({
                 disabled={!selectedDayKey || !selectedSlot}
                 className="w-full rounded-xl bg-slate-900 px-5 py-4 font-semibold text-white transition hover:bg-slate-800 disabled:opacity-40"
               >
-                Confirm Booking
+                {t('book.confirm')}
               </button>
             </div>
           </form>
         ) : (
           <div className="mt-8 max-w-xl rounded-2xl border border-emerald-700/25 bg-emerald-50 p-6">
             <p className="text-xs font-semibold uppercase tracking-widest text-emerald-800">
-              Confirmed
+              {t('book.confirmed')}
             </p>
             <h3 className="mt-2 font-display text-2xl font-semibold text-slate-900">
-              You are booked
+              {t('book.booked')}
             </h3>
             <p className="mt-3 text-sm leading-relaxed text-emerald-900/80">
-              Case ID <span className="font-mono font-semibold">{caseId}</span>
+              {t('header.caseId', { id: caseId })}
               <br />
-              {bookingConfirmed.dayLabel} at {bookingConfirmed.slot}
+              {t('docket.atTime', {
+                day: bookingConfirmed.dayLabel,
+                slot: bookingConfirmed.slot,
+              })}
               <br />
-              Confirmation sent conceptually to {bookingConfirmed.email}.
+              {t('book.sent', { email: bookingConfirmed.email })}
               <br />
-              This file is on the Welcome docket if you come back later.
+              {t('book.saved')}
             </p>
             <button
               type="button"
               onClick={onContinueSetup}
               className="mt-6 rounded-xl bg-slate-900 px-5 py-3 font-semibold text-white hover:bg-slate-800"
             >
-              Continue to Courtroom Setup
+              {t('book.continue')}
             </button>
           </div>
         )}

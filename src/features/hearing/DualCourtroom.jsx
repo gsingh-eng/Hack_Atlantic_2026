@@ -1,3 +1,4 @@
+import { useI18n } from '../../i18n/I18nProvider.jsx'
 import { CourtBenchScene } from './CourtBenchScene'
 import { PartyStand } from './PartyStand'
 
@@ -26,14 +27,15 @@ export function DualCourtroom({
   onRemoveClaimantFile,
   onRemoveDefendantFile,
 }) {
+  const { t } = useI18n()
   const floorLabel =
     floor === 'claimant'
-      ? `Floor: ${party1Name}`
+      ? t('hearing.floor', { name: party1Name })
       : floor === 'defendant'
-        ? `Floor: ${party2Name}`
+        ? t('hearing.floor', { name: party2Name })
         : floor === 'closed'
-          ? 'Session ended'
-          : 'Opening…'
+          ? t('hearing.closed')
+          : t('hearing.opening')
 
   return (
     <div className="animate-verdict-in relative flex h-[calc(100dvh-7.25rem)] min-h-[36rem] flex-col overflow-hidden rounded-2xl border border-white/15 shadow-[0_24px_60px_-20px_rgba(15,23,42,0.55)]">
@@ -80,7 +82,7 @@ export function DualCourtroom({
         </div>
 
         <p className="shrink-0 text-center text-[10px] uppercase tracking-[0.2em] text-white/45">
-          Both parties face the bench · video or mic · one at a time
+          {t('hearing.bothFace')}
         </p>
 
         <div className="grid h-[min(36vh,340px)] shrink-0 gap-3 lg:grid-cols-2">
@@ -88,7 +90,7 @@ export function DualCourtroom({
             compact
             side="left"
             partyName={party1Name}
-            roleLabel="Party 1 · Claimant"
+            roleLabel={t('hearing.role1')}
             hasFloor={floor === 'claimant'}
             isLive={isStandOpen && activeParty === 'claimant'}
             isConnecting={isConnecting && activeParty === 'claimant'}
@@ -108,7 +110,7 @@ export function DualCourtroom({
             compact
             side="right"
             partyName={party2Name}
-            roleLabel="Party 2 · Defendant"
+            roleLabel={t('hearing.role2')}
             hasFloor={floor === 'defendant'}
             isLive={isStandOpen && activeParty === 'defendant'}
             isConnecting={isConnecting && activeParty === 'defendant'}

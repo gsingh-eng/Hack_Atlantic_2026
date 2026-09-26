@@ -1,9 +1,11 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
+import { useI18n } from '../../../i18n/I18nProvider.jsx'
 
 const VISIBLE_MS = 5000
 
 export function TrainingCongrats({ onDismiss }) {
+  const { t } = useI18n()
   useEffect(() => {
     const timer = window.setTimeout(onDismiss, VISIBLE_MS)
     return () => window.clearTimeout(timer)
@@ -19,11 +21,10 @@ export function TrainingCongrats({ onDismiss }) {
           🎊
         </p>
         <h3 className="mt-2 font-display text-2xl font-semibold text-slate-900">
-          Congrats — you went through every training step
+          {t('train.congrats')}
         </h3>
         <p className="mt-2 text-sm leading-relaxed text-slate-600">
-          You now know the queue, booking, case IDs, history, and how both
-          parties appear before the judge.
+          {t('train.congratsBody')}
         </p>
       </div>
     </div>,

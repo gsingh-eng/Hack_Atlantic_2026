@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useI18n } from '../../../i18n/I18nProvider.jsx'
 import { TRAINING_STEPS, TRAINING_VIDEO_SRC } from './steps'
 
 const TOOLTIP_WIDTH = 340
@@ -54,6 +55,7 @@ function tooltipPosition(rect) {
 }
 
 function TrainingVideoPanel() {
+  const { t } = useI18n()
   if (TRAINING_VIDEO_SRC) {
     return (
       <video
@@ -62,7 +64,7 @@ function TrainingVideoPanel() {
         controls
         playsInline
       >
-        Your browser cannot play this walkthrough.
+        {t('train.videoFallback')}
       </video>
     )
   }
@@ -73,16 +75,12 @@ function TrainingVideoPanel() {
         ▶
       </span>
       <p className="mt-3 text-sm font-medium text-amber-100">
-        Hearing walkthrough video
+        {t('train.videoTitle')}
       </p>
       <p className="mt-1 max-w-sm text-xs leading-relaxed text-slate-400">
-        Attach your screen recording as
-        {' '}
-        <span className="font-mono text-slate-300">
-          src/assets/training/hearing-walkthrough.mp4
-        </span>
-        {' '}
-        and it will play here.
+        {t('train.videoBody', {
+          path: 'src/assets/training/hearing-walkthrough.mp4',
+        })}
       </p>
     </div>
   )
@@ -98,6 +96,7 @@ export function TrainingTour({
   onSkip,
   onDone,
 }) {
+  const { t } = useI18n()
   const step = TRAINING_STEPS[stepIndex]
   const isLast = stepIndex === TRAINING_STEPS.length - 1
   const [rect, setRect] = useState(null)
@@ -204,9 +203,11 @@ export function TrainingTour({
         </div>
 
         <h3 id="training-step-title" className="mt-2 font-display text-xl font-semibold text-slate-900">
-          {step.title}
+          {t(`train.${step.id}.title`)}
         </h3>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600">{step.body}</p>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">
+          {t(`train.${step.id}.body`)}
+        </p>
 
         {isVideo && (
           <div className="mt-4">
@@ -221,7 +222,7 @@ export function TrainingTour({
               onClick={onSkip}
               className="rounded-md px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-white hover:text-slate-800"
             >
-              Skip
+              {t('train.skip')}
             </button>
           )}
           {isLast ? (
@@ -231,7 +232,7 @@ export function TrainingTour({
               onClick={onDone}
               className="rounded-md bg-amber-800 px-4 py-1.5 text-sm font-medium text-amber-50 hover:bg-amber-700"
             >
-              Done
+              {t('train.done')}
             </button>
           ) : (
             <button
@@ -240,7 +241,7 @@ export function TrainingTour({
               onClick={onNext}
               className="rounded-md bg-amber-800 px-4 py-1.5 text-sm font-medium text-amber-50 hover:bg-amber-700"
             >
-              OK
+              {t('train.ok')}
             </button>
           )}
         </div>

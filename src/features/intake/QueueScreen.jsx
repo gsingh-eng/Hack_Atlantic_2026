@@ -1,4 +1,5 @@
 import { QUEUE_ETA_STEPS } from '../../lib/constants'
+import { useI18n } from '../../i18n/I18nProvider.jsx'
 
 export function QueueScreen({
   intakeName,
@@ -11,6 +12,7 @@ export function QueueScreen({
   onBack,
   onSubmit,
 }) {
+  const { t } = useI18n()
   return (
     <section className="animate-verdict-in mx-auto w-full max-w-3xl">
       <div className="rounded-2xl border border-amber-900/15 bg-[#faf6ee]/90 p-6 shadow-[0_20px_50px_-28px_rgba(80,60,20,0.35)] sm:p-8">
@@ -19,20 +21,18 @@ export function QueueScreen({
           onClick={onBack}
           className="mb-4 text-xs text-slate-500 hover:text-slate-800"
         >
-          ← Back
+          {t('queue.back')}
         </button>
         <h2 className="font-display text-3xl font-semibold text-slate-900">
-          Live Court Queue
+          {t('queue.title')}
         </h2>
-        <p className="mt-2 text-sm text-slate-600">
-          Enter your details to join the waiting line.
-        </p>
+        <p className="mt-2 text-sm text-slate-600">{t('queue.lead')}</p>
 
         {queueStep < 0 ? (
           <form onSubmit={onSubmit} className="mt-6 space-y-4">
             <div>
               <label className="mb-1.5 block text-xs font-semibold tracking-wider text-slate-500">
-                Full name
+                {t('queue.name')}
               </label>
               <input
                 required
@@ -43,7 +43,7 @@ export function QueueScreen({
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-semibold tracking-wider text-slate-500">
-                Email
+                {t('queue.email')}
               </label>
               <input
                 required
@@ -55,21 +55,21 @@ export function QueueScreen({
             </div>
             <div>
               <label className="mb-1.5 block text-xs font-semibold tracking-wider text-slate-500">
-                Brief dispute summary
+                {t('queue.summary')}
               </label>
               <textarea
                 rows={3}
                 value={intakeDispute}
                 onChange={(e) => setIntakeDispute(e.target.value)}
                 className="w-full rounded-xl border border-amber-900/20 bg-white px-4 py-3 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-amber-700/50 focus:ring-2 focus:ring-amber-700/20"
-                placeholder="What is this hearing about?"
+                placeholder={t('queue.placeholder')}
               />
             </div>
             <button
               type="submit"
               className="w-full rounded-xl bg-slate-900 px-5 py-4 font-semibold text-white hover:bg-slate-800"
             >
-              Join Queue
+              {t('queue.join')}
             </button>
           </form>
         ) : (
@@ -79,13 +79,13 @@ export function QueueScreen({
             </div>
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-amber-800">
-                {QUEUE_ETA_STEPS[queueStep].label}
+                {t(`queue.eta.${queueStep}.label`)}
               </p>
               <p className="mt-2 font-display text-3xl font-semibold text-slate-900">
-                {QUEUE_ETA_STEPS[queueStep].detail}
+                {t(`queue.eta.${queueStep}.detail`)}
               </p>
               <p className="mt-2 text-sm text-slate-600">
-                Hello {intakeName || 'party'} — please keep this window open.
+                {t('queue.hello', { name: intakeName || t('queue.party') })}
               </p>
             </div>
             <div className="h-2 overflow-hidden rounded-full bg-amber-900/10">

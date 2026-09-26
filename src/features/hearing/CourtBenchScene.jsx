@@ -1,3 +1,4 @@
+import { useI18n } from '../../i18n/I18nProvider.jsx'
 import { getJurisdictionTheme } from '../../theme/jurisdictionThemes'
 
 export function CourtBenchScene({
@@ -6,16 +7,17 @@ export function CourtBenchScene({
   callPhase = 'idle',
   compact = false,
 }) {
+  const { t } = useI18n()
   const theme = getJurisdictionTheme(jurisdiction)
 
   const statusLabel =
     callPhase === 'live'
-      ? '● Listening'
+      ? t('bench.live')
       : callPhase === 'connecting'
-        ? '● Connecting'
+        ? t('bench.connecting')
         : callPhase === 'ended'
-          ? '● Call ended'
-          : '● On the bench'
+          ? t('bench.ended')
+          : t('bench.idle')
 
   const stageAspect = compact
     ? 'min-h-0 flex-1'

@@ -28,8 +28,10 @@ import {
   prematureAwardNudge,
 } from '../lib/voice/hearingAgentPrompt'
 import { speakCourtScript, stopCourtSpeech } from '../lib/voice/speakCourt'
+import { useI18n } from '../i18n/I18nProvider.jsx'
 
 export default function App() {
+  const { t } = useI18n()
   const [stage, setStage] = useState('entry')
 
   const [jurisdiction, setJurisdiction] = useState('Canada')
@@ -437,9 +439,7 @@ export default function App() {
     } catch (error) {
       console.error('Verdict deliberation failed:', error)
       setVerdictData(null)
-      setVerdictError(
-        'Judgment could not finish. A file could not be read, or the decision service failed. Try again, or go back and remove a problem exhibit.',
-      )
+      setVerdictError(t('verdict.errorBody'))
       setIsSpeakingVerdict(false)
     } finally {
       setIsAnalyzing(false)
@@ -545,8 +545,8 @@ export default function App() {
       if (index >= QUEUE_ETA_STEPS.length - 1) {
         queueTimerRef.current = setTimeout(() => {
           setTopNotification({
-            title: 'Queue cleared — you are up',
-            body: 'Your estimated wait is over. Continue to courtroom setup.',
+            title: t('queue.clearedTitle'),
+            body: t('queue.clearedBody'),
           })
           setStage(0)
         }, 1800)
@@ -592,8 +592,12 @@ export default function App() {
     })
     setDocketCases(listCases())
     setTopNotification({
-      title: 'Hearing booked successfully',
-      body: `Case ${bookedId} — ${confirmed.dayLabel} at ${confirmed.slot}. Saved on this device.`,
+      title: t('book.bookedTitle'),
+      body: t('book.bookedBody', {
+        id: bookedId,
+        day: confirmed.dayLabel,
+        slot: confirmed.slot,
+      }),
     })
   }
 
@@ -668,18 +672,18 @@ export default function App() {
     setEntryPanel(null)
   }
 
-  const stageLabel =
+  const stageKey =
     stage === 'entry'
-      ? 'Welcome'
+      ? 'welcome'
       : stage === 'queue'
-        ? 'Live Queue'
+        ? 'queue'
         : stage === 'book'
-          ? 'Book Hearing'
+          ? 'book'
           : stage === 0
-            ? 'Setup'
+            ? 'setup'
             : stage === 1
-              ? 'Live Hearing'
-              : 'Verdict'
+              ? 'hearing'
+              : 'verdict'
 
   return (
     <div
@@ -701,7 +705,7 @@ export default function App() {
         <AppHeader
           caseId={caseId}
           jurisdiction={stage === 'entry' ? '' : jurisdictionLabel}
-          stageLabel={stageLabel}
+          stageKey={stageKey}
           notification={topNotification}
           light={isDayCourt}
           compact={isNightBench}
