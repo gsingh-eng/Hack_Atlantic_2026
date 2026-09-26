@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-[#f3efe6];
+  }
+
+  body {
+    @apply m-0 min-h-screen bg-[#f3efe6] font-sans text-slate-800 antialiased;
+    background-image:
+      radial-gradient(ellipse 70% 45% at 50% -10%, rgba(201, 162, 39, 0.14), transparent),
+      radial-gradient(ellipse 50% 40% at 100% 100%, rgba(148, 120, 70, 0.08), transparent);
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
