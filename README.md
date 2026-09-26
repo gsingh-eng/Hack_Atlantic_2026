@@ -15,7 +15,7 @@ Open the local URL Vite prints (usually `http://localhost:5173`).
 
 ## So far
 
-Welcome, queue, booking, setup, and the dual-party courtroom. Mic, video, and exhibits work on the stands. The live judge and written judgment come next.
+Welcome, queue, booking, setup, and a live courtroom. The judge hears each party on the stand. The written judgment comes next.
 
 ## Keys
 
