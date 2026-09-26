@@ -15,7 +15,7 @@ Open the local URL Vite prints (usually `http://localhost:5173`).
 
 ## So far
 
-Just the app shell: header and a welcome page. Next up is starting a case, then the hearing, then the judgment.
+Welcome, queue, booking, setup, and a local docket. You can start or resume a case. The live courtroom comes next.
 
 ## Keys
 

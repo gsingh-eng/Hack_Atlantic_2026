@@ -3,7 +3,8 @@
 @tailwind utilities;
 
 @layer base {
-  html {
+  html,
+  html.day-court {
     @apply bg-[#f3efe6];
   }
 
