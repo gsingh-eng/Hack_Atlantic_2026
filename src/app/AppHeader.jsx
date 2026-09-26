@@ -1,11 +1,15 @@
+import { useI18n } from '../i18n/I18nProvider.jsx'
+
 export function AppHeader({
   caseId,
   jurisdiction,
-  stageLabel,
+  stageKey,
   notification,
   light = false,
   compact = false,
 }) {
+  const { t, locale, setLocale } = useI18n()
+
   return (
     <header className={`${compact ? 'mb-2 space-y-2' : 'mb-6 space-y-3'}`}>
       {notification && (
@@ -54,7 +58,7 @@ export function AppHeader({
               VERITAS AI
             </h1>
             <p className={`mt-0.5 text-sm ${light ? 'text-slate-600' : 'text-slate-400'}`}>
-              The AI Arbitrator
+              {t('brand.subtitle')}
             </p>
           </div>
         </div>
@@ -67,7 +71,7 @@ export function AppHeader({
                   : 'border-slate-700 bg-slate-900/80 text-slate-300'
               }`}
             >
-              Case ID: {caseId}
+              {t('header.caseId', { id: caseId })}
             </span>
           )}
           {jurisdiction && (
@@ -88,8 +92,42 @@ export function AppHeader({
                 : 'border-amber-500/30 bg-amber-500/10 text-amber-400'
             }`}
           >
-            {stageLabel}
+            {t(`stage.${stageKey}`)}
           </span>
+          <div
+            className={`inline-flex overflow-hidden rounded-md border ${
+              light ? 'border-amber-900/20 bg-white/80' : 'border-white/15 bg-slate-950/50'
+            }`}
+            role="group"
+            aria-label="Language"
+          >
+            <button
+              type="button"
+              onClick={() => setLocale('en')}
+              className={`px-2.5 py-1.5 text-[11px] font-semibold tracking-wider ${
+                locale === 'en'
+                  ? 'bg-emerald-600 text-white'
+                  : light
+                    ? 'text-slate-600 hover:bg-amber-50'
+                    : 'text-white/70 hover:bg-white/10'
+              }`}
+            >
+              {t('lang.en')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setLocale('fr')}
+              className={`px-2.5 py-1.5 text-[11px] font-semibold tracking-wider ${
+                locale === 'fr'
+                  ? 'bg-emerald-600 text-white'
+                  : light
+                    ? 'text-slate-600 hover:bg-amber-50'
+                    : 'text-white/70 hover:bg-white/10'
+              }`}
+            >
+              {t('lang.fr')}
+            </button>
+          </div>
         </div>
       </div>
     </header>

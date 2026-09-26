@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useI18n } from '../../i18n/I18nProvider.jsx'
 
 function CameraPreview({ stream }) {
   const videoRef = useRef(null)
@@ -43,6 +44,7 @@ export function PartyStand({
   onAddFiles,
   onRemoveFile,
 }) {
+  const { t } = useI18n()
   const isLeft = side === 'left'
   const canStart = hasFloor && !isLive && !isConnecting && !isOnHold
   const showVideo = mediaMode === 'video' && previewStream
@@ -124,27 +126,27 @@ export function PartyStand({
                     onClick={onStartMic}
                     className="rounded-lg border border-white/15 bg-slate-950/55 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/85 transition hover:border-white/30"
                   >
-                    Mic only
+                    {t('stand.micOnly')}
                   </button>
                   <button
                     type="button"
                     onClick={onStartVideo}
                     className="rounded-lg bg-emerald-600 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white transition hover:bg-emerald-500"
                   >
-                    Start video
+                    {t('stand.startVideo')}
                   </button>
                 </div>
               ) : (
                 <p className="text-center text-sm text-white/70">
                   {isOnHold
-                    ? 'Wait for the judge'
+                    ? t('stand.waitJudge')
                     : isConnecting
-                      ? 'Connecting…'
+                      ? t('stand.connecting')
                       : isLive
-                        ? 'Speaking — tap End when finished'
+                        ? t('stand.speaking')
                         : turnComplete
-                          ? 'Testimony heard'
-                          : 'Wait for the judge'}
+                          ? t('stand.heardLine')
+                          : t('stand.waitJudge')}
                 </p>
               )}
 
@@ -154,7 +156,7 @@ export function PartyStand({
                   onClick={onStop}
                   className="rounded-lg bg-red-600 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white"
                 >
-                  End
+                  {t('stand.end')}
                 </button>
               ) : null}
             </div>
@@ -166,7 +168,7 @@ export function PartyStand({
               onClick={onStop}
               className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2 rounded-lg bg-red-600 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white"
             >
-              End
+              {t('stand.end')}
             </button>
           ) : null}
         </div>
@@ -174,11 +176,11 @@ export function PartyStand({
 
       <div className="shrink-0">
         <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-white/45">
-          Exhibits for the bench
+          {t('stand.exhibits')}
         </p>
         <div className="flex items-center gap-2">
           <label className="inline-flex cursor-pointer items-center rounded-lg border border-white/15 bg-slate-950/50 px-2.5 py-1 text-[11px] font-medium text-white/80 transition hover:border-white/30 hover:bg-slate-900/70">
-            Attach file
+            {t('stand.attach')}
             <input
               type="file"
               accept="image/*,.pdf,.txt,.png,.jpg,.jpeg,.webp"
@@ -191,7 +193,7 @@ export function PartyStand({
             />
           </label>
           <p className="truncate text-[10px] text-white/40">
-            Receipt, note, or photo
+            {t('stand.receipt')}
           </p>
         </div>
         {exhibits.length > 0 && (
@@ -207,7 +209,7 @@ export function PartyStand({
                   onClick={() => onRemoveFile?.(item.id)}
                   className="shrink-0 text-white/40 hover:text-white/80"
                 >
-                  Remove
+                  {t('stand.remove')}
                 </button>
               </li>
             ))}

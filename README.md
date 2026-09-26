@@ -15,7 +15,7 @@ Open the local URL Vite prints (usually `http://localhost:5173`).
 
 ## So far
 
-Welcome, queue, booking, setup, live hearing, and a written Gemini judgment. Copy `.env.example` to `.env` and add a Gemini key. Do not commit `.env`.
+Welcome, queue, booking, setup, live hearing, and a written Gemini judgment. The header has EN / FR for the UI. Copy `.env.example` to `.env` and add a Gemini key. Do not commit `.env`.
 
 ## Keys
 

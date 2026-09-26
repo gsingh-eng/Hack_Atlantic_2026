@@ -1,5 +1,6 @@
 import { DISPUTE_CATEGORIES } from '../../lib/judgment/analyzeDispute'
 import { CANADIAN_PROVINCES, JURISDICTIONS, LANGUAGES } from '../../lib/constants'
+import { useI18n } from '../../i18n/I18nProvider.jsx'
 import { CourtBenchScene } from '../hearing/CourtBenchScene'
 
 export function SetupScreen({
@@ -21,20 +22,18 @@ export function SetupScreen({
   setCaseIdInput,
   onSubmit,
 }) {
+  const { t } = useI18n()
   return (
     <section className="animate-verdict-in w-full">
       <div className="rounded-2xl border border-amber-900/15 bg-[#faf6ee]/90 p-6 shadow-[0_20px_50px_-28px_rgba(80,60,20,0.35)] sm:p-8 lg:p-10">
         <div className="mb-8 max-w-3xl">
           <p className="text-xs font-semibold uppercase tracking-widest text-amber-800">
-            Courtroom setup
+            {t('setup.kicker')}
           </p>
           <h2 className="mt-2 font-display text-4xl font-semibold text-slate-900 lg:text-5xl">
-            Open a Shared Courtroom
+            {t('setup.title')}
           </h2>
-          <p className="mt-3 text-base leading-relaxed text-slate-600">
-            Both parties sit together facing the judge. One mic at a time —
-            the bench controls the floor.
-          </p>
+          <p className="mt-3 text-base leading-relaxed text-slate-600">{t('setup.lead')}</p>
         </div>
 
         <form
@@ -44,7 +43,7 @@ export function SetupScreen({
           <div className="space-y-6">
             <div>
               <label className="mb-3 block text-xs font-semibold tracking-wider text-slate-500">
-                Jurisdiction
+                {t('setup.jurisdiction')}
               </label>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {JURISDICTIONS.map((option) => (
@@ -65,7 +64,7 @@ export function SetupScreen({
               {jurisdiction === 'Canada' && (
                 <div className="mt-4">
                   <label className="mb-2 block text-xs font-semibold tracking-wider text-slate-500">
-                    Province (small-claims rules vary)
+                    {t('setup.province')}
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {CANADIAN_PROVINCES.map((province) => (
@@ -89,7 +88,7 @@ export function SetupScreen({
 
             <div>
               <label className="mb-3 block text-xs font-semibold tracking-wider text-slate-500">
-                Dispute category (focuses laws & judgment)
+                {t('setup.category')}
               </label>
               <div className="grid gap-2 sm:grid-cols-2">
                 {DISPUTE_CATEGORIES.map((cat) => (
@@ -103,7 +102,7 @@ export function SetupScreen({
                         : 'border-amber-900/15 bg-white/80 text-slate-700 hover:border-amber-700/30 hover:bg-amber-50/80'
                     }`}
                   >
-                    <span className="block text-sm font-medium">{cat.label}</span>
+                    <span className="block text-sm font-medium">{t(`cat.${cat.id}`)}</span>
                     <span
                       className={`mt-1 block text-[11px] ${
                         disputeCategory === cat.id
@@ -111,7 +110,7 @@ export function SetupScreen({
                           : 'text-slate-500'
                       }`}
                     >
-                      {cat.blurb}
+                      {t(`cat.${cat.id}.blurb`)}
                     </span>
                   </button>
                 ))}
@@ -124,7 +123,7 @@ export function SetupScreen({
                   htmlFor="party1"
                   className="mb-2 block text-xs font-semibold tracking-wider text-sky-800"
                 >
-                  Party 1 Name (Claimant)
+                  {t('setup.party1')}
                 </label>
                 <input
                   id="party1"
@@ -139,7 +138,7 @@ export function SetupScreen({
                   htmlFor="party2"
                   className="mb-2 block text-xs font-semibold tracking-wider text-amber-800"
                 >
-                  Party 2 Name (Defendant)
+                  {t('setup.party2')}
                 </label>
                 <input
                   id="party2"
@@ -156,7 +155,7 @@ export function SetupScreen({
                 htmlFor="language"
                 className="mb-2 block text-xs font-semibold tracking-wider text-slate-500"
               >
-                Language
+                {t('setup.recordLang')}
               </label>
               <select
                 id="language"
@@ -174,7 +173,7 @@ export function SetupScreen({
 
             <div>
               <label className="mb-3 block text-xs font-semibold tracking-wider text-slate-500">
-                Case Access
+                {t('setup.access')}
               </label>
               <div className="mb-3 flex flex-col gap-2 sm:flex-row">
                 <button
@@ -186,7 +185,7 @@ export function SetupScreen({
                       : 'border-amber-900/15 bg-white/80 text-slate-700 hover:border-amber-700/30'
                   }`}
                 >
-                  Create New Case ID
+                  {t('setup.create')}
                 </button>
                 <button
                   type="button"
@@ -197,7 +196,7 @@ export function SetupScreen({
                       : 'border-amber-900/15 bg-white/80 text-slate-700 hover:border-amber-700/30'
                   }`}
                 >
-                  Join Existing Case ID
+                  {t('setup.join')}
                 </button>
               </div>
               {caseMode === 'join' && (
@@ -215,7 +214,7 @@ export function SetupScreen({
               type="submit"
               className="w-full rounded-xl bg-slate-900 px-5 py-4 text-base font-semibold text-white transition hover:bg-slate-800"
             >
-              Enter Dual-Party Courtroom
+              {t('setup.enter')}
             </button>
           </div>
 
