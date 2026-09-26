@@ -15,7 +15,7 @@ Open the local URL Vite prints (usually `http://localhost:5173`).
 
 ## So far
 
-Welcome, queue, booking, setup, and a local docket. You can start or resume a case. The live courtroom comes next.
+Welcome, queue, booking, setup, and the dual-party courtroom. Mic, video, and exhibits work on the stands. The live judge and written judgment come next.
 
 ## Keys
 

@@ -3,9 +3,16 @@
 @tailwind utilities;
 
 @layer base {
-  html,
+  html {
+    @apply bg-[#f3efe6];
+  }
+
   html.day-court {
     @apply bg-[#f3efe6];
+  }
+
+  html.night-bench {
+    @apply bg-slate-900;
   }
 
   body {
@@ -13,6 +20,13 @@
     background-image:
       radial-gradient(ellipse 70% 45% at 50% -10%, rgba(201, 162, 39, 0.14), transparent),
       radial-gradient(ellipse 50% 40% at 100% 100%, rgba(148, 120, 70, 0.08), transparent);
+  }
+
+  html.night-bench body {
+    @apply bg-slate-900 text-slate-200;
+    background-image:
+      radial-gradient(ellipse 70% 40% at 50% -15%, rgba(59, 130, 246, 0.12), transparent),
+      radial-gradient(ellipse 50% 35% at 100% 100%, rgba(30, 41, 59, 0.45), transparent);
   }
 
   #root {
