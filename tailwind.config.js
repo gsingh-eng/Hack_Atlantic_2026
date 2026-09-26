@@ -17,10 +17,15 @@ export default {
           '0%': { opacity: '0', transform: 'translateY(16px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
+        'status-pulse': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.55' },
+        },
       },
       animation: {
         'radar-ping': 'radar-ping 2.2s cubic-bezier(0, 0, 0.2, 1) infinite',
         'verdict-in': 'verdict-in 0.55s ease-out forwards',
+        'status-pulse': 'status-pulse 1.6s ease-in-out infinite',
       },
     },
   },

@@ -4,10 +4,13 @@ import { WelcomeScreen } from '../features/welcome/WelcomeScreen'
 import { QueueScreen } from '../features/intake/QueueScreen'
 import { BookScreen } from '../features/intake/BookScreen'
 import { SetupScreen } from '../features/setup/SetupScreen'
+import { DualCourtroom } from '../features/hearing/DualCourtroom'
 import { CASE_STATUS, listCases, upsertCase } from '../lib/cases/caseStore'
 import { generateCaseId } from '../lib/cases/ids'
 import { getAvailableBookingDays } from '../lib/intake/booking'
+import { addExhibitFiles } from '../lib/hearing/exhibits'
 import { QUEUE_ETA_STEPS } from '../lib/constants'
+import { getJurisdictionTheme } from '../theme/jurisdictionThemes'
 
 export default function App() {
   const [stage, setStage] = useState('entry')
@@ -34,11 +37,27 @@ export default function App() {
   const [entryPanel, setEntryPanel] = useState(null)
   const [docketCases, setDocketCases] = useState(() => listCases())
   const [savedVerdict, setSavedVerdict] = useState(null)
+  const [floor, setFloor] = useState('opening')
+  const [claimantDone, setClaimantDone] = useState(false)
+  const [defendantDone, setDefendantDone] = useState(false)
+  const [claimantExhibits, setClaimantExhibits] = useState([])
+  const [defendantExhibits, setDefendantExhibits] = useState([])
+  const [isStandOpen, setIsStandOpen] = useState(false)
+  const [isConnecting, setIsConnecting] = useState(false)
+  const [isSessionActive, setIsSessionActive] = useState(false)
+  const [activeParty, setActiveParty] = useState(null)
+  const [liveMediaMode, setLiveMediaMode] = useState('mic')
+  const [livePreviewStream, setLivePreviewStream] = useState(null)
 
   const queueTimerRef = useRef(null)
+  const micStreamRef = useRef(null)
+  const advancingRef = useRef(false)
 
+  const theme = getJurisdictionTheme(jurisdiction)
   const jurisdictionLabel =
     jurisdiction === 'Canada' ? `Canada · ${canadaProvince}` : jurisdiction
+  const isNightBench = stage === 1
+  const isDayCourt = !isNightBench
 
   useEffect(() => {
     if (!topNotification) return undefined
@@ -59,10 +78,16 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    document.documentElement.classList.add('day-court')
-    document.documentElement.classList.remove('night-bench')
-    return () => document.documentElement.classList.remove('day-court', 'night-bench')
-  }, [])
+    const root = document.documentElement
+    if (isNightBench) {
+      root.classList.add('night-bench')
+      root.classList.remove('day-court')
+    } else {
+      root.classList.add('day-court')
+      root.classList.remove('night-bench')
+    }
+    return () => root.classList.remove('day-court', 'night-bench')
+  }, [isNightBench])
 
   const applyCaseRecord = (record) => {
     if (!record) return
@@ -86,12 +111,45 @@ export default function App() {
     }
   }
 
+  const stopMicTracks = () => {
+    if (micStreamRef.current) {
+      micStreamRef.current.getTracks().forEach((track) => track.stop())
+      micStreamRef.current = null
+    }
+    setLivePreviewStream(null)
+  }
+
+  const resetHearingState = () => {
+    stopMicTracks()
+    setFloor('opening')
+    setClaimantDone(false)
+    setDefendantDone(false)
+    setClaimantExhibits([])
+    setDefendantExhibits([])
+    setIsStandOpen(false)
+    setIsConnecting(false)
+    setIsSessionActive(false)
+    setActiveParty(null)
+    setLiveMediaMode('mic')
+  }
+
+  const beginHearing = (id) => {
+    resetHearingState()
+    setCaseId(id)
+    setStage(1)
+    window.setTimeout(() => setFloor('claimant'), 400)
+  }
+
   const openDocketCase = (record, action) => {
     applyCaseRecord(record)
     setEntryPanel(null)
     if (action === 'verdict' && record.verdict) {
       setSavedVerdict(record.verdict)
       setStage('saved')
+      return
+    }
+    if (action === 'hearing') {
+      beginHearing(record.id)
       return
     }
     setStage(0)
@@ -189,11 +247,66 @@ export default function App() {
       summary: intakeDispute.trim(),
     })
     setDocketCases(listCases())
-    setStage('next')
+    beginHearing(id)
+  }
+
+  const startPartyStand = async (party, mode) => {
+    if (floor !== party || isStandOpen || isConnecting) return
+    setIsConnecting(true)
+    setActiveParty(party)
+    setLiveMediaMode(mode)
+    try {
+      if (mode === 'video') {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: { facingMode: 'user' },
+        })
+        stream.getAudioTracks().forEach((track) => track.stop())
+        micStreamRef.current = stream
+        setLivePreviewStream(stream)
+      }
+      setIsStandOpen(true)
+      setIsSessionActive(true)
+    } catch (error) {
+      console.error('Could not open the stand:', error)
+      setActiveParty(null)
+      setLiveMediaMode('mic')
+    } finally {
+      setIsConnecting(false)
+    }
+  }
+
+  const stopPartyStand = async (party) => {
+    if (activeParty !== party || !isStandOpen || advancingRef.current) return
+    advancingRef.current = true
+    stopMicTracks()
+    setIsStandOpen(false)
+    setIsSessionActive(false)
+    setActiveParty(null)
+    if (party === 'claimant') {
+      setClaimantDone(true)
+      setFloor('defendant')
+    } else {
+      setDefendantDone(true)
+      setFloor('closed')
+      setStage('next')
+    }
+    advancingRef.current = false
+  }
+
+  const addPartyFiles = (party, fileList) => {
+    const setter = party === 'claimant' ? setClaimantExhibits : setDefendantExhibits
+    setter((prev) => addExhibitFiles(prev, fileList))
+  }
+
+  const removePartyFile = (party, fileId) => {
+    const setter = party === 'claimant' ? setClaimantExhibits : setDefendantExhibits
+    setter((prev) => prev.filter((item) => item.id !== fileId))
   }
 
   const resetToWelcome = () => {
     if (queueTimerRef.current) clearTimeout(queueTimerRef.current)
+    resetHearingState()
     setStage('entry')
     setCaseId('')
     setCaseIdInput('')
@@ -215,17 +328,27 @@ export default function App() {
           ? 'Book Hearing'
           : stage === 0
             ? 'Setup'
-            : stage === 'saved'
-              ? 'Saved judgment'
-              : 'Hearing next'
+            : stage === 1
+              ? 'Live Hearing'
+              : stage === 'saved'
+                ? 'Saved judgment'
+                : 'Hearing next'
 
   return (
     <div
-      className="min-h-screen bg-[#f3efe6] px-4 py-6 text-slate-800 sm:px-6 lg:px-10"
-      style={{
-        backgroundImage:
-          'radial-gradient(ellipse 70% 45% at 50% -10%, rgba(201, 162, 39, 0.14), transparent), radial-gradient(ellipse 50% 40% at 100% 100%, rgba(148, 120, 70, 0.08), transparent)',
-      }}
+      className={`min-h-screen ${
+        isNightBench
+          ? 'bg-transparent px-3 py-3 text-slate-200 sm:px-4'
+          : 'bg-[#f3efe6] px-4 py-6 text-slate-800 sm:px-6 lg:px-10'
+      }`}
+      style={
+        isDayCourt
+          ? {
+              backgroundImage:
+                'radial-gradient(ellipse 70% 45% at 50% -10%, rgba(201, 162, 39, 0.14), transparent), radial-gradient(ellipse 50% 40% at 100% 100%, rgba(148, 120, 70, 0.08), transparent)',
+            }
+          : undefined
+      }
     >
       <div className="relative mx-auto w-full max-w-[1600px]">
         <AppHeader
@@ -233,7 +356,8 @@ export default function App() {
           jurisdiction={stage === 'entry' ? '' : jurisdictionLabel}
           stageLabel={stageLabel}
           notification={topNotification}
-          light
+          light={isDayCourt}
+          compact={isNightBench}
         />
 
         {stage === 'entry' && (
@@ -323,6 +447,34 @@ export default function App() {
           />
         )}
 
+        {stage === 1 && (
+          <DualCourtroom
+            jurisdiction={jurisdiction}
+            caseId={caseId}
+            party1Name={party1Name}
+            party2Name={party2Name}
+            floor={floor}
+            claimantDone={claimantDone}
+            defendantDone={defendantDone}
+            isSessionActive={isSessionActive}
+            isConnecting={isConnecting}
+            isStandOpen={isStandOpen}
+            activeParty={activeParty}
+            liveMediaMode={liveMediaMode}
+            livePreviewStream={livePreviewStream}
+            onStartMic={(party) => startPartyStand(party, 'mic')}
+            onStartVideo={(party) => startPartyStand(party, 'video')}
+            onStopStand={stopPartyStand}
+            theme={theme}
+            claimantExhibits={claimantExhibits}
+            defendantExhibits={defendantExhibits}
+            onAddClaimantFiles={(files) => addPartyFiles('claimant', files)}
+            onAddDefendantFiles={(files) => addPartyFiles('defendant', files)}
+            onRemoveClaimantFile={(id) => removePartyFile('claimant', id)}
+            onRemoveDefendantFile={(id) => removePartyFile('defendant', id)}
+          />
+        )}
+
         {stage === 'saved' && savedVerdict && (
           <section className="animate-verdict-in mx-auto max-w-3xl rounded-2xl border border-amber-900/15 bg-[#faf6ee]/90 p-8">
             <button
@@ -353,11 +505,11 @@ export default function App() {
               Case {caseId}
             </p>
             <h2 className="mt-2 font-display text-3xl font-semibold text-slate-900">
-              Setup is saved
+              Both parties have been heard
             </h2>
             <p className="mt-3 text-base text-slate-600">
-              {party1Name} and {party2Name} are ready for {jurisdictionLabel}.
-              The live courtroom comes next.
+              {party1Name} and {party2Name} finished in {jurisdictionLabel}.
+              The written judgment comes next.
             </p>
             <button
               type="button"
