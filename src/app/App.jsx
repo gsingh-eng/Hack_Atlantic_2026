@@ -6,10 +6,19 @@ import { QueueScreen } from '../features/intake/QueueScreen'
 import { BookScreen } from '../features/intake/BookScreen'
 import { SetupScreen } from '../features/setup/SetupScreen'
 import { DualCourtroom } from '../features/hearing/DualCourtroom'
+import { VerdictScreen } from '../features/verdict/VerdictScreen'
 import { CASE_STATUS, listCases, upsertCase } from '../lib/cases/caseStore'
 import { generateCaseId } from '../lib/cases/ids'
 import { getAvailableBookingDays } from '../lib/intake/booking'
-import { addExhibitFiles } from '../lib/hearing/exhibits'
+import {
+  addExhibitFiles,
+  describeExhibits,
+  exhibitInlineParts,
+  exhibitNames,
+  prepareExhibitsForJudge,
+} from '../lib/hearing/exhibits'
+import { appendTranscript } from '../lib/hearing/transcript'
+import { decideVerdict } from '../lib/judgment/decideVerdict'
 import { QUEUE_ETA_STEPS } from '../lib/constants'
 import { getJurisdictionTheme } from '../theme/jurisdictionThemes'
 import { ELEVENLABS_AGENT_ID } from '../lib/voice/config'
@@ -44,7 +53,14 @@ export default function App() {
   const [topNotification, setTopNotification] = useState(null)
   const [entryPanel, setEntryPanel] = useState(null)
   const [docketCases, setDocketCases] = useState(() => listCases())
-  const [savedVerdict, setSavedVerdict] = useState(null)
+  const [claimantText, setClaimantText] = useState('')
+  const [defendantText, setDefendantText] = useState('')
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isSpeakingVerdict, setIsSpeakingVerdict] = useState(false)
+  const [verdictData, setVerdictData] = useState(null)
+  const [verdictError, setVerdictError] = useState('')
+  const [humanReviewRequested, setHumanReviewRequested] = useState(false)
+  const [historyOnly, setHistoryOnly] = useState(false)
   const [floor, setFloor] = useState('opening')
   const [claimantDone, setClaimantDone] = useState(false)
   const [defendantDone, setDefendantDone] = useState(false)
@@ -68,6 +84,8 @@ export default function App() {
   const reconnectsRef = useRef(0)
   const claimantSpeechRef = useRef('')
   const defendantSpeechRef = useRef('')
+  const claimantTextRef = useRef('')
+  const defendantTextRef = useRef('')
 
   const theme = getJurisdictionTheme(jurisdiction)
   const jurisdictionLabel =
@@ -100,6 +118,14 @@ export default function App() {
   useEffect(() => {
     floorRef.current = floor
   }, [floor])
+
+  useEffect(() => {
+    claimantTextRef.current = claimantText
+  }, [claimantText])
+
+  useEffect(() => {
+    defendantTextRef.current = defendantText
+  }, [defendantText])
 
   useEffect(() => {
     const root = document.documentElement
@@ -191,6 +217,14 @@ export default function App() {
     setLiveMediaMode('mic')
     claimantSpeechRef.current = ''
     defendantSpeechRef.current = ''
+    setClaimantText('')
+    setDefendantText('')
+    setIsAnalyzing(false)
+    setIsSpeakingVerdict(false)
+    setVerdictData(null)
+    setVerdictError('')
+    setHumanReviewRequested(false)
+    setHistoryOnly(false)
   }
 
   const handleHearingMessage = ({ message, source }) => {
@@ -213,10 +247,12 @@ export default function App() {
       claimantSpeechRef.current = claimantSpeechRef.current
         ? `${claimantSpeechRef.current} ${text}`
         : text
+      setClaimantText((prev) => appendTranscript(prev, text))
     } else if (currentParty === 'defendant') {
       defendantSpeechRef.current = defendantSpeechRef.current
         ? `${defendantSpeechRef.current} ${text}`
         : text
+      setDefendantText((prev) => appendTranscript(prev, text))
     }
   }
 
@@ -322,6 +358,104 @@ export default function App() {
     }
   }
 
+  const beginVerdict = async () => {
+    setStage(2)
+    setIsAnalyzing(true)
+    setIsSpeakingVerdict(false)
+    setVerdictData(null)
+    setVerdictError('')
+    setHumanReviewRequested(false)
+
+    const leftRecord =
+      claimantSpeechRef.current.trim() || claimantTextRef.current
+    const rightRecord =
+      defendantSpeechRef.current.trim() || defendantTextRef.current
+
+    try {
+      const claimantPrepared = await prepareExhibitsForJudge(claimantExhibits)
+      const defendantPrepared = await prepareExhibitsForJudge(defendantExhibits)
+      const exhibitRecord = [
+        describeExhibits(claimantPrepared, `Claimant (${party1Name})`),
+        describeExhibits(defendantPrepared, `Defendant (${party2Name})`),
+      ].join('\n\n')
+      const exhibitParts = [
+        ...exhibitInlineParts(claimantPrepared),
+        ...exhibitInlineParts(defendantPrepared),
+      ]
+
+      const result = await decideVerdict(leftRecord, rightRecord, {
+        jurisdiction: jurisdictionLabel,
+        caseId,
+        language,
+        disputeCategory,
+        party1Name,
+        party2Name,
+        exhibitRecord,
+        exhibitParts,
+        claimantExhibits: exhibitNames(claimantExhibits),
+        defendantExhibits: exhibitNames(defendantExhibits),
+      })
+      result.aggregatedTestimony = {
+        ...result.aggregatedTestimony,
+        claimant: claimantTextRef.current,
+        defendant: defendantTextRef.current,
+        claimantSpeech: leftRecord,
+        defendantSpeech: rightRecord,
+        claimantExhibits: exhibitNames(claimantExhibits),
+        defendantExhibits: exhibitNames(defendantExhibits),
+      }
+      setVerdictData(result)
+      setHistoryOnly(false)
+      upsertCase({
+        id: caseId,
+        status: CASE_STATUS.heard,
+        party1Name,
+        party2Name,
+        jurisdiction,
+        canadaProvince,
+        disputeCategory,
+        language,
+        summary: intakeDispute.trim() || result.awardReason,
+        ...(bookingConfirmed
+          ? {
+              schedule: {
+                dayLabel: bookingConfirmed.dayLabel,
+                slot: bookingConfirmed.slot,
+              },
+            }
+          : {}),
+        verdict: result,
+      })
+      setDocketCases(listCases())
+      setIsAnalyzing(false)
+      setIsSpeakingVerdict(true)
+      try {
+        await speakCourtScript(result.spokenVerdict)
+      } finally {
+        setIsSpeakingVerdict(false)
+      }
+    } catch (error) {
+      console.error('Verdict deliberation failed:', error)
+      setVerdictData(null)
+      setVerdictError(
+        'Judgment could not finish. A file could not be read, or the decision service failed. Try again, or go back and remove a problem exhibit.',
+      )
+      setIsSpeakingVerdict(false)
+    } finally {
+      setIsAnalyzing(false)
+    }
+  }
+
+  const replaySpokenVerdict = async () => {
+    if (!verdictData?.spokenVerdict || isSpeakingVerdict) return
+    setIsSpeakingVerdict(true)
+    try {
+      await speakCourtScript(verdictData.spokenVerdict)
+    } finally {
+      setIsSpeakingVerdict(false)
+    }
+  }
+
   const finishPartyTurn = async (party) => {
     if (advancingRef.current) return
     advancingRef.current = true
@@ -339,9 +473,9 @@ export default function App() {
         setDefendantDone(true)
         setFloor('closed')
         await speakCourtScript(
-          `Thank you, ${party2Name}. Both parties have been heard. This session is ended. The written judgment comes next.`,
+          `Thank you, ${party2Name}. Both parties have been heard. This session is ended. The court will now render judgment.`,
         )
-        setStage('next')
+        await beginVerdict()
       }
     } finally {
       advancingRef.current = false
@@ -372,8 +506,11 @@ export default function App() {
     applyCaseRecord(record)
     setEntryPanel(null)
     if (action === 'verdict' && record.verdict) {
-      setSavedVerdict(record.verdict)
-      setStage('saved')
+      setVerdictData(record.verdict)
+      setIsAnalyzing(false)
+      setHumanReviewRequested(Boolean(record.humanReviewRequested))
+      setHistoryOnly(true)
+      setStage(2)
       return
     }
     if (action === 'hearing') {
@@ -527,7 +664,6 @@ export default function App() {
     setBookingConfirmed(null)
     setTopNotification(null)
     setSelectedSlot('')
-    setSavedVerdict(null)
     setDocketCases(listCases())
     setEntryPanel(null)
   }
@@ -543,9 +679,7 @@ export default function App() {
             ? 'Setup'
             : stage === 1
               ? 'Live Hearing'
-              : stage === 'saved'
-                ? 'Saved judgment'
-                : 'Hearing next'
+              : 'Verdict'
 
   return (
     <div
@@ -688,50 +822,31 @@ export default function App() {
           />
         )}
 
-        {stage === 'saved' && savedVerdict && (
-          <section className="animate-verdict-in mx-auto max-w-3xl rounded-2xl border border-amber-900/15 bg-[#faf6ee]/90 p-8">
-            <button
-              type="button"
-              onClick={resetToWelcome}
-              className="mb-4 text-xs text-slate-500 hover:text-slate-800"
-            >
-              ← Back to Welcome
-            </button>
-            <p className="text-xs font-semibold uppercase tracking-widest text-amber-800">
-              Saved judgment
-            </p>
-            <h2 className="mt-2 font-display text-3xl font-semibold text-slate-900">
-              Case {caseId}
-            </h2>
-            <p className="mt-4 text-base leading-relaxed text-slate-700">
-              {savedVerdict.verdictSummary}
-            </p>
-            <p className="mt-4 font-display text-2xl font-semibold text-amber-900">
-              {savedVerdict.damagesAwarded}
-            </p>
-          </section>
-        )}
-
-        {stage === 'next' && (
-          <section className="animate-verdict-in mx-auto max-w-3xl rounded-2xl border border-amber-900/15 bg-[#faf6ee]/90 p-8">
-            <p className="text-xs font-semibold uppercase tracking-widest text-amber-800">
-              Case {caseId}
-            </p>
-            <h2 className="mt-2 font-display text-3xl font-semibold text-slate-900">
-              Both parties have been heard
-            </h2>
-            <p className="mt-3 text-base text-slate-600">
-              {party1Name} and {party2Name} finished in {jurisdictionLabel}.
-              The written judgment comes next.
-            </p>
-            <button
-              type="button"
-              onClick={resetToWelcome}
-              className="mt-6 border border-amber-900/20 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wider text-slate-700 hover:bg-amber-50"
-            >
-              Back to Welcome
-            </button>
-          </section>
+        {stage === 2 && (
+          <VerdictScreen
+            caseId={caseId}
+            party1Name={party1Name}
+            party2Name={party2Name}
+            claimantText={claimantText}
+            defendantText={defendantText}
+            jurisdictionLabel={jurisdictionLabel}
+            historyOnly={historyOnly}
+            isAnalyzing={isAnalyzing}
+            isSpeakingVerdict={isSpeakingVerdict}
+            verdictData={verdictData}
+            verdictError={verdictError}
+            humanReviewRequested={humanReviewRequested}
+            onRequestReview={() => {
+              setHumanReviewRequested(true)
+              if (caseId) {
+                upsertCase({ id: caseId, humanReviewRequested: true })
+                setDocketCases(listCases())
+              }
+            }}
+            onReplay={replaySpokenVerdict}
+            onRetry={beginVerdict}
+            onBack={resetToWelcome}
+          />
         )}
       </div>
     </div>

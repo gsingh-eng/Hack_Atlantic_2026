@@ -15,8 +15,8 @@ Open the local URL Vite prints (usually `http://localhost:5173`).
 
 ## So far
 
-Welcome, queue, booking, setup, and a live courtroom. The judge hears each party on the stand. The written judgment comes next.
+Welcome, queue, booking, setup, live hearing, and a written Gemini judgment. Copy `.env.example` to `.env` and add a Gemini key. Do not commit `.env`.
 
 ## Keys
 
-Copy `.env.example` to `.env` when you add a Gemini key. Do not commit `.env`.
+`VITE_GEMINI_API_KEY` is required for the written decision. Do not commit `.env`.
