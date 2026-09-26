@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Conversation } from '@elevenlabs/client'
 import { AppHeader } from './AppHeader'
 import { WelcomeScreen } from '../features/welcome/WelcomeScreen'
 import { QueueScreen } from '../features/intake/QueueScreen'
@@ -11,6 +12,13 @@ import { getAvailableBookingDays } from '../lib/intake/booking'
 import { addExhibitFiles } from '../lib/hearing/exhibits'
 import { QUEUE_ETA_STEPS } from '../lib/constants'
 import { getJurisdictionTheme } from '../theme/jurisdictionThemes'
+import { ELEVENLABS_AGENT_ID } from '../lib/voice/config'
+import {
+  hearingContextualUpdate,
+  isPrematureAwardLine,
+  prematureAwardNudge,
+} from '../lib/voice/hearingAgentPrompt'
+import { speakCourtScript, stopCourtSpeech } from '../lib/voice/speakCourt'
 
 export default function App() {
   const [stage, setStage] = useState('entry')
@@ -50,8 +58,16 @@ export default function App() {
   const [livePreviewStream, setLivePreviewStream] = useState(null)
 
   const queueTimerRef = useRef(null)
+  const conversationRef = useRef(null)
+  const activePartyRef = useRef(null)
   const micStreamRef = useRef(null)
+  const floorRef = useRef(floor)
   const advancingRef = useRef(false)
+  const userEndingRef = useRef(false)
+  const standModeRef = useRef('mic')
+  const reconnectsRef = useRef(0)
+  const claimantSpeechRef = useRef('')
+  const defendantSpeechRef = useRef('')
 
   const theme = getJurisdictionTheme(jurisdiction)
   const jurisdictionLabel =
@@ -76,6 +92,14 @@ export default function App() {
       if (queueTimerRef.current) clearTimeout(queueTimerRef.current)
     }
   }, [])
+
+  useEffect(() => {
+    activePartyRef.current = activeParty
+  }, [activeParty])
+
+  useEffect(() => {
+    floorRef.current = floor
+  }, [floor])
 
   useEffect(() => {
     const root = document.documentElement
@@ -119,6 +143,40 @@ export default function App() {
     setLivePreviewStream(null)
   }
 
+  const endMicSession = async () => {
+    userEndingRef.current = true
+    const session = conversationRef.current
+    conversationRef.current = null
+    setActiveParty(null)
+    activePartyRef.current = null
+    setIsConnecting(false)
+    setIsStandOpen(false)
+
+    if (session) {
+      try {
+        await session.endSession()
+      } catch (error) {
+        console.error('Failed to end judge session:', error)
+      }
+    }
+
+    stopMicTracks()
+    setLiveMediaMode('mic')
+    setIsSessionActive(false)
+    reconnectsRef.current = 0
+    userEndingRef.current = false
+  }
+
+  useEffect(() => {
+    return () => {
+      conversationRef.current?.endSession().catch(() => {})
+      if (micStreamRef.current) {
+        micStreamRef.current.getTracks().forEach((track) => track.stop())
+      }
+      stopCourtSpeech()
+    }
+  }, [])
+
   const resetHearingState = () => {
     stopMicTracks()
     setFloor('opening')
@@ -131,16 +189,186 @@ export default function App() {
     setIsSessionActive(false)
     setActiveParty(null)
     setLiveMediaMode('mic')
+    claimantSpeechRef.current = ''
+    defendantSpeechRef.current = ''
   }
 
-  const beginHearing = (id) => {
+  const handleHearingMessage = ({ message, source }) => {
+    const text = (message || '').trim()
+    if (!text) return
+
+    const currentParty = activePartyRef.current
+    const session = conversationRef.current
+
+    if (source === 'agent') {
+      if (isPrematureAwardLine(text) && session) {
+        session.sendContextualUpdate(prematureAwardNudge(party2Name))
+      }
+      return
+    }
+
+    if (source !== 'user') return
+
+    if (currentParty === 'claimant') {
+      claimantSpeechRef.current = claimantSpeechRef.current
+        ? `${claimantSpeechRef.current} ${text}`
+        : text
+    } else if (currentParty === 'defendant') {
+      defendantSpeechRef.current = defendantSpeechRef.current
+        ? `${defendantSpeechRef.current} ${text}`
+        : text
+    }
+  }
+
+  const openJudgeSession = async (party) => {
+    stopCourtSpeech()
+    const conversation = await Conversation.startSession({
+      agentId: ELEVENLABS_AGENT_ID,
+      dynamicVariables: {
+        hearing_phase:
+          party === 'claimant' ? 'claimant_testimony' : 'defendant_testimony',
+        case_id: caseId,
+      },
+      onConnect: () => {
+        setIsSessionActive(true)
+        setIsConnecting(false)
+        reconnectsRef.current = 0
+      },
+      onDisconnect: () => {
+        conversationRef.current = null
+        setIsSessionActive(false)
+        if (userEndingRef.current) return
+        if (
+          activePartyRef.current === party &&
+          floorRef.current === party &&
+          reconnectsRef.current < 2
+        ) {
+          reconnectsRef.current += 1
+          setIsConnecting(true)
+          window.setTimeout(() => {
+            if (userEndingRef.current || conversationRef.current) return
+            if (activePartyRef.current !== party) return
+            openJudgeSession(party).catch((error) => {
+              console.warn('Judge session reconnect failed:', error)
+              setIsConnecting(false)
+            })
+          }, 500)
+        }
+      },
+      onMessage: handleHearingMessage,
+      onError: (message) => {
+        console.error('Judge session error:', message)
+      },
+    })
+
+    conversationRef.current = conversation
+    conversation.sendContextualUpdate(
+      hearingContextualUpdate({
+        party,
+        party1Name,
+        party2Name,
+        claimantSpeech: claimantSpeechRef.current,
+      }),
+    )
+    return conversation
+  }
+
+  const startStandForParty = async (party, mode = 'mic') => {
+    if (conversationRef.current || isConnecting || isStandOpen) return
+    if (floorRef.current !== party) return
+
+    setIsConnecting(true)
+    setIsStandOpen(true)
+    setActiveParty(party)
+    activePartyRef.current = party
+    standModeRef.current = mode
+    setLiveMediaMode(mode)
+    reconnectsRef.current = 0
+
+    try {
+      if (mode === 'video') {
+        try {
+          const cameraStream = await navigator.mediaDevices.getUserMedia({
+            audio: true,
+            video: { facingMode: 'user' },
+          })
+          cameraStream.getAudioTracks().forEach((track) => track.stop())
+          micStreamRef.current = cameraStream
+          setLivePreviewStream(cameraStream)
+        } catch (mediaError) {
+          console.warn('Camera unavailable, using mic only:', mediaError)
+          mode = 'mic'
+          standModeRef.current = 'mic'
+          setLiveMediaMode('mic')
+        }
+      } else {
+        const unlocked = await navigator.mediaDevices.getUserMedia({ audio: true })
+        unlocked.getTracks().forEach((track) => track.stop())
+      }
+
+      await openJudgeSession(party)
+    } catch (error) {
+      console.error('Failed to start stand session:', error)
+      conversationRef.current = null
+      setIsSessionActive(false)
+      setIsConnecting(false)
+      if (!micStreamRef.current) {
+        setIsStandOpen(false)
+        setActiveParty(null)
+        activePartyRef.current = null
+        setLivePreviewStream(null)
+        setLiveMediaMode('mic')
+      }
+    }
+  }
+
+  const finishPartyTurn = async (party) => {
+    if (advancingRef.current) return
+    advancingRef.current = true
+
+    try {
+      await endMicSession()
+
+      if (party === 'claimant') {
+        setClaimantDone(true)
+        setFloor('defendant')
+        await speakCourtScript(
+          `Thank you, ${party1Name}. Please remain seated. ${party2Name}, the floor is yours. Please state your name, then begin your reply.`,
+        )
+      } else if (party === 'defendant') {
+        setDefendantDone(true)
+        setFloor('closed')
+        await speakCourtScript(
+          `Thank you, ${party2Name}. Both parties have been heard. This session is ended. The written judgment comes next.`,
+        )
+        setStage('next')
+      }
+    } finally {
+      advancingRef.current = false
+    }
+  }
+
+  const beginHearing = async (id, extra = {}) => {
+    await endMicSession()
+    stopCourtSpeech()
     resetHearingState()
     setCaseId(id)
+    const p1 = extra.party1Name || party1Name
+    const venueJurisdiction = extra.jurisdiction || jurisdiction
+    const venueProvince = extra.canadaProvince || canadaProvince
+    const venueLabel =
+      venueJurisdiction === 'Canada'
+        ? `Canada · ${venueProvince}`
+        : venueJurisdiction
     setStage(1)
-    window.setTimeout(() => setFloor('claimant'), 400)
+    const opening = `This court is now in session for Case ${id}, under ${venueLabel} micro-claims rules. ${p1}, please state your name and the case, then begin your testimony when ready.`
+    window.setTimeout(async () => {
+      await speakCourtScript(opening)
+      setFloor('claimant')
+    }, 400)
   }
 
-  const openDocketCase = (record, action) => {
+  const openDocketCase = async (record, action) => {
     applyCaseRecord(record)
     setEntryPanel(null)
     if (action === 'verdict' && record.verdict) {
@@ -149,7 +377,12 @@ export default function App() {
       return
     }
     if (action === 'hearing') {
-      beginHearing(record.id)
+      await beginHearing(record.id, {
+        party1Name: record.party1Name,
+        party2Name: record.party2Name,
+        jurisdiction: record.jurisdiction,
+        canadaProvince: record.canadaProvince,
+      })
       return
     }
     setStage(0)
@@ -227,19 +460,21 @@ export default function App() {
     })
   }
 
-  const enterCourtroom = (e) => {
+  const enterCourtroom = async (e) => {
     e.preventDefault()
     const id =
       caseMode === 'create'
         ? generateCaseId()
         : caseIdInput.trim().toUpperCase() || caseId || generateCaseId()
+    const p1 = party1Name.trim() || 'Party 1'
+    const p2 = party2Name.trim() || 'Party 2'
     setCaseId(id)
     setCaseIdInput(id)
     upsertCase({
       id,
       status: CASE_STATUS.ready,
-      party1Name: party1Name.trim() || 'Party 1',
-      party2Name: party2Name.trim() || 'Party 2',
+      party1Name: p1,
+      party2Name: p2,
       jurisdiction,
       canadaProvince,
       disputeCategory,
@@ -247,56 +482,32 @@ export default function App() {
       summary: intakeDispute.trim(),
     })
     setDocketCases(listCases())
-    beginHearing(id)
+    await beginHearing(id, { party1Name: p1, party2Name: p2 })
   }
 
   const startPartyStand = async (party, mode) => {
     if (floor !== party || isStandOpen || isConnecting) return
-    setIsConnecting(true)
-    setActiveParty(party)
-    setLiveMediaMode(mode)
-    try {
-      if (mode === 'video') {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: true,
-          video: { facingMode: 'user' },
-        })
-        stream.getAudioTracks().forEach((track) => track.stop())
-        micStreamRef.current = stream
-        setLivePreviewStream(stream)
-      }
-      setIsStandOpen(true)
-      setIsSessionActive(true)
-    } catch (error) {
-      console.error('Could not open the stand:', error)
-      setActiveParty(null)
-      setLiveMediaMode('mic')
-    } finally {
-      setIsConnecting(false)
-    }
+    await startStandForParty(party, mode)
   }
 
   const stopPartyStand = async (party) => {
-    if (activeParty !== party || !isStandOpen || advancingRef.current) return
-    advancingRef.current = true
-    stopMicTracks()
-    setIsStandOpen(false)
-    setIsSessionActive(false)
-    setActiveParty(null)
-    if (party === 'claimant') {
-      setClaimantDone(true)
-      setFloor('defendant')
-    } else {
-      setDefendantDone(true)
-      setFloor('closed')
-      setStage('next')
-    }
-    advancingRef.current = false
+    if (activeParty !== party || !isStandOpen) return
+    await finishPartyTurn(party)
   }
 
   const addPartyFiles = (party, fileList) => {
     const setter = party === 'claimant' ? setClaimantExhibits : setDefendantExhibits
-    setter((prev) => addExhibitFiles(prev, fileList))
+    setter((prev) => {
+      const next = addExhibitFiles(prev, fileList)
+      const added = next.slice(prev.length)
+      if (added.length && conversationRef.current) {
+        const who = party === 'claimant' ? party1Name : party2Name
+        conversationRef.current.sendContextualUpdate(
+          `${who} filed exhibit(s): ${added.map((item) => item.name).join(', ')}. Note them on the record. Do not award money.`,
+        )
+      }
+      return next
+    })
   }
 
   const removePartyFile = (party, fileId) => {
@@ -304,8 +515,10 @@ export default function App() {
     setter((prev) => prev.filter((item) => item.id !== fileId))
   }
 
-  const resetToWelcome = () => {
+  const resetToWelcome = async () => {
     if (queueTimerRef.current) clearTimeout(queueTimerRef.current)
+    await endMicSession()
+    stopCourtSpeech()
     resetHearingState()
     setStage('entry')
     setCaseId('')
