@@ -321,35 +321,28 @@ Return ONLY JSON:
   "concerns": ["short concern"]
 }`
 
-  for (const model of MODELS.slice(0, 2)) {
-    try {
-      let data
-      try {
-        data = await callModel(
-          apiKey,
-          model,
-          prompt,
-          [],
-          true,
-          APPEAL_RESPONSE_SCHEMA,
-          12000,
-        )
-      } catch {
-        data = await callModel(apiKey, model, prompt, [], false, APPEAL_RESPONSE_SCHEMA, 12000)
-      }
-      const confidence = String(data?.confidence || '').toLowerCase()
-      return {
-        agrees: Boolean(data?.agrees),
-        confidence:
-          confidence === 'high' || confidence === 'low' ? confidence : 'medium',
-        concerns: Array.isArray(data?.concerns)
-          ? data.concerns.map((item) => String(item).trim()).filter(Boolean).slice(0, 3)
-          : [],
-      }
-    } catch (error) {
-      console.warn(`Appeal review ${model} failed:`, error)
+  const model = MODELS[0]
+  try {
+    const data = await callModel(
+      apiKey,
+      model,
+      prompt,
+      [],
+      true,
+      APPEAL_RESPONSE_SCHEMA,
+      10000,
+    )
+    const confidence = String(data?.confidence || '').toLowerCase()
+    return {
+      agrees: data?.agrees !== false,
+      confidence:
+        confidence === 'high' || confidence === 'low' ? confidence : 'medium',
+      concerns: Array.isArray(data?.concerns)
+        ? data.concerns.map((item) => String(item).trim()).filter(Boolean).slice(0, 3)
+        : [],
     }
+  } catch (error) {
+    console.warn(`Appeal review ${model} failed:`, error)
+    return null
   }
-
-  return null
 }
