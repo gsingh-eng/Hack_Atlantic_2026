@@ -41,6 +41,21 @@ function seedCases() {
 
   return [
     {
+      id: 'VER-HA-2026',
+      status: CASE_STATUS.ready,
+      party1Name: 'Gun',
+      party2Name: 'Singh',
+      jurisdiction: 'Canada',
+      canadaProvince: 'New Brunswick',
+      disputeCategory: 'partnership_prize',
+      language: 'English',
+      schedule: { dayLabel: 'Sunday, Sep 27', slot: 'Now' },
+      summary: 'Dispute from the judges: implement this on the hackathon.',
+      pin: null,
+      sealed: false,
+      updatedAt: Date.now() + hour,
+    },
+    {
       id: 'VER-NS-2048',
       status: CASE_STATUS.scheduled,
       party1Name: 'Maya Chen',
