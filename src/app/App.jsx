@@ -457,9 +457,13 @@ export default function App() {
     }
   }
 
-  const broadcastJudge = async (message, { speak = true } = {}) => {
-    setClaimantText((prev) => appendJudgeLog(prev, message))
-    setDefendantText((prev) => appendJudgeLog(prev, message))
+  const broadcastJudge = async (message, { speak = true, to = 'both' } = {}) => {
+    if (to === 'claimant' || to === 'both') {
+      setClaimantText((prev) => appendJudgeLog(prev, message))
+    }
+    if (to === 'defendant' || to === 'both') {
+      setDefendantText((prev) => appendJudgeLog(prev, message))
+    }
     if (speak) {
       await speakCourtScript(message)
     }
@@ -477,12 +481,14 @@ export default function App() {
         setFloor('defendant')
         await broadcastJudge(
           `Thank you, ${party1Name}. Please remain seated. ${party2Name}, the floor is yours. Please state your name, then begin your reply.`,
+          { to: 'defendant' },
         )
       } else if (party === 'defendant') {
         setDefendantDone(true)
         setFloor('closed')
         await broadcastJudge(
           `Thank you, ${party2Name}. Both parties have been heard. This session is ended. The court will now render judgment.`,
+          { to: 'defendant' },
         )
         await beginVerdict()
       }
@@ -506,7 +512,7 @@ export default function App() {
     setStage(1)
     const opening = `This court is now in session for Case ${id}, under ${venueLabel} micro-claims rules. ${p1}, please state your name and the case, then begin your testimony when ready.`
     window.setTimeout(async () => {
-      await broadcastJudge(opening)
+      await broadcastJudge(opening, { to: 'claimant' })
       setFloor('claimant')
     }, 400)
   }

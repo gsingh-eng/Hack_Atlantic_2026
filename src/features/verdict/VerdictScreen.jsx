@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { visiblePartySpeech } from '../../lib/hearing/transcript'
 import { useI18n } from '../../i18n/I18nProvider.jsx'
 
 function confidenceKey(level) {
@@ -147,9 +148,6 @@ export function VerdictScreen({
           <h2 className="mt-1 font-display text-3xl font-semibold text-slate-900">
             {t('verdict.title', { id: caseId })}
           </h2>
-          {verdictData?.engineLabel && (
-            <p className="mt-2 text-xs text-slate-500">{verdictData.engineLabel}</p>
-          )}
         </div>
         <button
           type="button"
@@ -222,7 +220,10 @@ export function VerdictScreen({
                     </p>
                   )}
                   <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-                    {verdictData.aggregatedTestimony?.claimant || claimantText}
+                    {visiblePartySpeech(
+                      verdictData.aggregatedTestimony?.claimant || claimantText,
+                      verdictData.aggregatedTestimony?.claimantSpeech,
+                    ) || t('verdict.noSpeech')}
                   </p>
                   {verdictData.aggregatedTestimony?.claimantExhibits?.length > 0 && (
                     <p className="mt-3 text-xs text-slate-500">
@@ -237,7 +238,10 @@ export function VerdictScreen({
                     {t('verdict.defendant', { name: party2Name })}
                   </h3>
                   <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-                    {verdictData.aggregatedTestimony?.defendant || defendantText}
+                    {visiblePartySpeech(
+                      verdictData.aggregatedTestimony?.defendant || defendantText,
+                      verdictData.aggregatedTestimony?.defendantSpeech,
+                    ) || t('verdict.noSpeech')}
                   </p>
                   {verdictData.aggregatedTestimony?.defendantExhibits?.length > 0 && (
                     <p className="mt-3 text-xs text-slate-500">

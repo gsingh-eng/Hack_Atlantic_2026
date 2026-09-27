@@ -41,17 +41,11 @@ export function WelcomeScreen({
           className="pointer-events-none absolute bottom-[-6%] right-[-6%] hidden h-[92%] w-auto max-w-[56%] select-none object-contain object-right-bottom opacity-[0.08] sm:block lg:opacity-[0.1]"
         />
         <div className="relative z-10 p-6 pb-28 sm:p-8 sm:pb-32 lg:p-10 lg:pb-36">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="max-w-2xl pr-2">
-              <p className="text-xs font-semibold uppercase tracking-widest text-amber-800">
-                {t('welcome.kicker')}
-              </p>
-              <h2 className="mt-2 font-display text-3xl font-semibold text-slate-900 sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
-                {t('welcome.title')}
-              </h2>
-              <p className="mt-3 text-base text-slate-600">{t('welcome.lead')}</p>
-            </div>
-            <div className="relative z-20 ml-auto flex shrink-0 items-center gap-2 sm:mr-1">
+          <div className="flex items-start justify-between gap-3">
+            <p className="min-w-0 pt-1 text-xs font-semibold uppercase tracking-widest text-amber-800">
+              {t('welcome.kicker')}
+            </p>
+            <div className="relative z-20 flex shrink-0 items-center gap-2">
               <button
                 type="button"
                 onClick={() => (tour.active ? tour.skip() : startTraining())}
@@ -83,6 +77,12 @@ export function WelcomeScreen({
                 {entryPanel === 'help' ? t('welcome.closeHelp') : t('welcome.help')}
               </button>
             </div>
+          </div>
+          <div className="mt-2 max-w-2xl pr-2">
+            <h2 className="font-display text-3xl font-semibold text-slate-900 sm:text-4xl lg:text-[2.75rem] lg:leading-tight">
+              {t('welcome.title')}
+            </h2>
+            <p className="mt-3 text-base text-slate-600">{t('welcome.lead')}</p>
           </div>
 
           {entryPanel === 'help' && (

@@ -14,6 +14,10 @@ export function useTrainingTour() {
   const active = stepIndex !== null
   const isLast = stepIndex === TRAINING_STEPS.length - 1
 
+  const resetView = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' })
+  }
+
   const start = () => {
     setShowCongrats(false)
     setStepIndex(0)
@@ -21,6 +25,7 @@ export function useTrainingTour() {
 
   const skip = () => {
     setStepIndex(null)
+    resetView()
   }
 
   const next = () => {
@@ -35,6 +40,7 @@ export function useTrainingTour() {
     setCompleted(true)
     setStepIndex(null)
     setShowCongrats(true)
+    resetView()
   }
 
   const dismissBanner = useCallback(() => {

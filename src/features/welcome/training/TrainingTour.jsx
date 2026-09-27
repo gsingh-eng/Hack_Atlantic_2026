@@ -162,18 +162,17 @@ export function TrainingTour({
     : tooltipPosition(rect)
 
   return createPortal(
-    <div className="fixed inset-0 z-[80]" role="dialog" aria-modal="true" aria-labelledby="training-step-title">
-      <div className={`absolute inset-0 ${rect ? '' : 'bg-slate-950/50'}`} />
+    <div className="fixed inset-0 z-[80] overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="training-step-title">
+      <div className="absolute inset-0 bg-slate-950/50" />
 
       {rect && (
         <div
-          className="pointer-events-none absolute rounded-xl ring-2 ring-amber-300 ring-offset-2 ring-offset-transparent"
+          className="pointer-events-none absolute z-[1] rounded-xl ring-2 ring-amber-300"
           style={{
             top: rect.top - 6,
             left: rect.left - 6,
             width: rect.width + 12,
             height: rect.height + 12,
-            boxShadow: '0 0 0 9999px rgba(15, 23, 42, 0.48)',
           }}
         />
       )}
