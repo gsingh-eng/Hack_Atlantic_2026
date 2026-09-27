@@ -1,5 +1,5 @@
 import { analyzeDispute, extractPartySpeech } from './analyzeDispute.js'
-import { decideWithGemini } from './geminiVerdict.js'
+import { decideWithGemini, reviewVerdictWithGemini } from './geminiVerdict.js'
 import { verifyVerdict } from './verifyVerdict.js'
 
 function withFallbackFields(result, context = {}) {
@@ -97,9 +97,22 @@ export async function decideVerdict(claimantRaw, defendantRaw, context) {
       defendantText,
     })
     if (gemini?.verdictSummary && gemini?.spokenVerdict) {
+      let appealReview = null
+      try {
+        appealReview = await reviewVerdictWithGemini(
+          claimantText,
+          defendantText,
+          gemini,
+        )
+      } catch (error) {
+        console.warn('Appeal review failed open:', error)
+        appealReview = null
+      }
+
       return withFallbackFields(
         {
           ...gemini,
+          appealReview,
           caseContext: {
             jurisdiction: context.jurisdiction,
             caseId: context.caseId,

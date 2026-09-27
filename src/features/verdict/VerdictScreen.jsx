@@ -1,6 +1,121 @@
 import { useState } from 'react'
 import { useI18n } from '../../i18n/I18nProvider.jsx'
 
+function confidenceKey(level) {
+  if (level === 'high') return 'verdict.confHigh'
+  if (level === 'low') return 'verdict.confLow'
+  return 'verdict.confMedium'
+}
+
+function RecordCheckCard({ verdictData, party1Name, party2Name, t }) {
+  const findings = Array.isArray(verdictData?.findings) ? verdictData.findings : []
+  const review = verdictData?.appealReview
+  if (!findings.length && !review) return null
+
+  const factsChecked = verdictData.verification?.findings?.checked ?? findings.length
+  const factsOnRecord = verdictData.verification?.findings?.onRecord ?? 0
+  const lawsChecked = verdictData.verification?.laws?.checked ?? 0
+  const lawsVerified = verdictData.verification?.laws?.verified ?? 0
+  const allFactsOk = factsChecked > 0 && factsOnRecord === factsChecked
+
+  const partyLabel = (party) =>
+    party === 'defendant' ? party2Name : party1Name
+
+  const reviewTone = !review
+    ? ''
+    : !review.agrees
+      ? 'border-red-200 bg-red-50 text-red-950'
+      : review.confidence === 'high'
+        ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
+        : 'border-amber-200 bg-amber-50 text-amber-950'
+
+  return (
+    <div className="rounded-2xl border border-amber-900/15 bg-white/75 p-6 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+          {t('verdict.recordCheck')}
+        </h3>
+        <div className="flex flex-wrap gap-2">
+          {factsChecked > 0 && (
+            <span
+              className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                allFactsOk
+                  ? 'bg-emerald-100 text-emerald-800'
+                  : 'bg-amber-100 text-amber-900'
+              }`}
+            >
+              {t('verdict.factsChip', { n: factsOnRecord, total: factsChecked })}
+            </span>
+          )}
+          {lawsChecked > 0 && (
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+              {t('verdict.lawsChip', { n: lawsVerified, total: lawsChecked })}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {findings.length > 0 && (
+        <ul className="mt-4 space-y-3">
+          {findings.map((item, index) => {
+            const ok =
+              item.status === 'on_record' || item.status === 'reattributed'
+            return (
+              <li
+                key={`${item.quote || item.fact || 'finding'}-${index}`}
+                className={`rounded-xl border px-4 py-3 ${
+                  ok
+                    ? 'border-emerald-200 bg-emerald-50/70'
+                    : 'border-red-200 bg-red-50/70'
+                }`}
+              >
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <p className="text-sm font-semibold text-slate-800">{item.fact}</p>
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${
+                      ok
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-red-100 text-red-800'
+                    }`}
+                  >
+                    {ok ? `✓ ${t('verdict.onRecord')}` : `⚠ ${t('verdict.notFound')}`}
+                  </span>
+                </div>
+                {item.quote && (
+                  <p className="mt-1 text-sm italic text-slate-600">
+                    {partyLabel(item.party)}:{' '}
+                    &ldquo;{item.quote}&rdquo;
+                  </p>
+                )}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
+      {review && (
+        <div className={`mt-4 rounded-xl border px-4 py-3 text-sm ${reviewTone}`}>
+          <p className="font-medium">
+            {review.agrees
+              ? `⚖ ${t('verdict.appealAgree')} · ${t(confidenceKey(review.confidence))}`
+              : `⚠ ${t('verdict.appealDisagree')}`}
+          </p>
+          {Array.isArray(review.concerns) && review.concerns.length > 0 && (
+            <ul className="mt-2 list-disc space-y-1 pl-5 text-xs">
+              {review.concerns.slice(0, 3).map((concern, index) => (
+                <li key={`${concern}-${index}`}>{concern}</li>
+              ))}
+            </ul>
+          )}
+          {(!review.agrees || review.confidence === 'low') && (
+            <p className="mt-2 text-xs font-medium">{t('verdict.appealHuman')}</p>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function VerdictScreen({
   caseId,
   party1Name,
@@ -250,6 +365,13 @@ export function VerdictScreen({
               </ul>
             </div>
           </div>
+
+          <RecordCheckCard
+            verdictData={verdictData}
+            party1Name={party1Name}
+            party2Name={party2Name}
+            t={t}
+          />
 
           <div className="rounded-2xl border border-dashed border-amber-800/30 bg-amber-50/60 p-6 text-center">
             <p className="text-xs font-semibold uppercase tracking-widest text-amber-800">
