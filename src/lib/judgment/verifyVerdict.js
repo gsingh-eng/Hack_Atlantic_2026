@@ -93,6 +93,99 @@ function formatMoney(n) {
   return `$${Number(n).toLocaleString()}`
 }
 
+const STOP_WORDS = new Set([
+  'the',
+  'a',
+  'an',
+  'and',
+  'or',
+  'to',
+  'of',
+  'in',
+  'on',
+  'for',
+  'is',
+  'was',
+  'were',
+  'be',
+  'it',
+  'that',
+  'this',
+  'with',
+  'as',
+  'at',
+  'by',
+])
+
+function normalizeWords(text) {
+  return String(text || '')
+    .split(/\n+/)
+    .filter((line) => line.trim() && !/^\[Judge Veritas\]:/i.test(line.trim()))
+    .join(' ')
+    .replace(/\[Judge Veritas\]:[^\n]*/gi, ' ')
+    .replace(/[\u2018\u2019\u0060]/g, "'")
+    .toLowerCase()
+    .replace(/[^a-z0-9'\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function meaningfulWords(text) {
+  return normalizeWords(text)
+    .split(' ')
+    .filter((word) => word.length >= 3 && !STOP_WORDS.has(word))
+}
+
+function quoteOnRecord(quote, haystack) {
+  const needle = normalizeWords(quote)
+  const hay = normalizeWords(haystack)
+  if (!needle || !hay) return false
+  if (hay.includes(needle)) return true
+
+  const quoteWords = meaningfulWords(quote)
+  if (quoteWords.length < 2) return false
+  const hayWords = new Set(meaningfulWords(haystack))
+  const hits = quoteWords.filter((word) => hayWords.has(word)).length
+  return hits / quoteWords.length >= 0.8
+}
+
+function partyHaystack(party, context = {}, result = {}) {
+  const speechKey = party === 'defendant' ? 'defendantSpeech' : 'claimantSpeech'
+  const textKey = party === 'defendant' ? 'defendantText' : 'claimantText'
+  const exhibitKey = party === 'defendant' ? 'defendantExhibits' : 'claimantExhibits'
+  return [
+    context[textKey],
+    result.aggregatedTestimony?.[speechKey],
+    result.aggregatedTestimony?.[party],
+    ...(context[exhibitKey] || []),
+    ...(result.aggregatedTestimony?.[exhibitKey] || []),
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
+function verifyFindings(findings, context = {}, result = {}) {
+  if (!Array.isArray(findings)) return []
+  const claimantHay = partyHaystack('claimant', context, result)
+  const defendantHay = partyHaystack('defendant', context, result)
+
+  return findings.map((item) => {
+    const claimed = item?.party === 'defendant' ? 'defendant' : 'claimant'
+    const own = claimed === 'defendant' ? defendantHay : claimantHay
+    const other = claimed === 'defendant' ? claimantHay : defendantHay
+    const otherParty = claimed === 'defendant' ? 'claimant' : 'defendant'
+    const quote = item?.quote || ''
+
+    if (quoteOnRecord(quote, own)) {
+      return { ...item, party: claimed, status: 'on_record' }
+    }
+    if (quoteOnRecord(quote, other)) {
+      return { ...item, party: otherParty, status: 'reattributed' }
+    }
+    return { ...item, party: claimed, status: 'not_found' }
+  })
+}
+
 export function verifyVerdict(result, context = {}) {
   const dismissed = result?.outcome === 'dismissed'
   const { venue, limit } = venueLimit(context.jurisdiction)
@@ -133,18 +226,32 @@ export function verifyVerdict(result, context = {}) {
     }
   })
 
+  const findings = verifyFindings(result.findings, context, result)
+  const findingsOnRecord = findings.filter(
+    (item) => item.status === 'on_record' || item.status === 'reattributed',
+  ).length
+
   return {
     ...result,
     damagesAwarded,
     awardReason,
     lawsDetail,
     lawsCited: lawsDetail.map((law) => law.title),
+    findings,
     verification: {
       money: {
         status: moneyStatus,
         note: moneyNote,
         limit,
         venue,
+      },
+      findings: {
+        checked: findings.length,
+        onRecord: findingsOnRecord,
+      },
+      laws: {
+        checked: lawsDetail.length,
+        verified: lawsDetail.filter((law) => law.verified).length,
       },
     },
   }
