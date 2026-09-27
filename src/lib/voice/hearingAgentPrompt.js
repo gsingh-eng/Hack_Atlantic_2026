@@ -16,6 +16,9 @@ function looksLikePrematureAward(text) {
   )
 }
 
+const PROOF_ONCE =
+  'You may ask once whether they have a text, photo, or file. If they will attach it, say noted and move on. If they cannot or say no, say okay and keep going from what they said. Do not ask again about attaching, PDFs, or proof.'
+
 export function hearingContextualUpdate({
   party,
   party1Name,
@@ -23,7 +26,7 @@ export function hearingContextualUpdate({
   claimantSpeech = '',
 }) {
   if (party === 'claimant') {
-    return `You are taking the CLAIMANT's testimony only. ${party2Name} has not spoken. Behave like a judge examining a witness: stay quiet on small yes/ok lines. When they state a fact, amount, item, or injury, confirm that line and ask if they have proof. NEVER award money, find fault, or give a verdict. The final decision comes only after both parties have finished.`
+    return `You are taking the CLAIMANT's testimony only. ${party2Name} has not spoken. Behave like a judge examining a witness: stay quiet on small yes/ok lines. When they state a fact, amount, item, or injury, confirm that line. ${PROOF_ONCE} NEVER award money, find fault, or give a verdict. The final decision comes only after both parties have finished.`
   }
 
   const summary = String(claimantSpeech || '')
@@ -34,11 +37,11 @@ export function hearingContextualUpdate({
     ? `The claimant ${party1Name || 'Party 1'} alleged: "${summary}". Put each claim to the defendant and ask them to respond.`
     : `The claimant ${party1Name || 'Party 1'} placed little on the record. Ask the defendant to state their side.`
 
-  return `You are taking the DEFENDANT's testimony only. ${claimBlock} Behave like a judge: stay quiet on small yes/ok lines. When they state a fact, amount, or defence, confirm that line and ask if they have proof. NEVER award money or announce a verdict. The final decision comes after this turn ends.`
+  return `You are taking the DEFENDANT's testimony only. ${claimBlock} Behave like a judge: stay quiet on small yes/ok lines. When they state a fact, amount, or defence, confirm that line. ${PROOF_ONCE} NEVER award money or announce a verdict. The final decision comes after this turn ends.`
 }
 
 export function prematureAwardNudge(party2Name) {
-  return `Stop. That was a decision. The defendant ${party2Name} has not been heard. Retract any award. Ask one proof question and wait.`
+  return `Stop. That was a decision. The defendant ${party2Name} has not been heard. Retract any award. Ask one short question about their side and wait. Do not ask about files or proof.`
 }
 
 export function isPrematureAwardLine(text) {
