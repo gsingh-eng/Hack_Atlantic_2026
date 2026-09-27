@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Conversation } from '@elevenlabs/client'
 import { AppHeader } from './AppHeader'
+import { GavelCursor } from './GavelCursor'
 import { WelcomeScreen } from '../features/welcome/WelcomeScreen'
 import { QueueScreen } from '../features/intake/QueueScreen'
 import { BookScreen } from '../features/intake/BookScreen'
@@ -17,7 +18,7 @@ import {
   exhibitNames,
   prepareExhibitsForJudge,
 } from '../lib/hearing/exhibits'
-import { appendTranscript } from '../lib/hearing/transcript'
+import { appendJudgeLog, appendTranscript } from '../lib/hearing/transcript'
 import { decideVerdict } from '../lib/judgment/decideVerdict'
 import { QUEUE_ETA_STEPS } from '../lib/constants'
 import { getJurisdictionTheme } from '../theme/jurisdictionThemes'
@@ -456,6 +457,14 @@ export default function App() {
     }
   }
 
+  const broadcastJudge = async (message, { speak = true } = {}) => {
+    setClaimantText((prev) => appendJudgeLog(prev, message))
+    setDefendantText((prev) => appendJudgeLog(prev, message))
+    if (speak) {
+      await speakCourtScript(message)
+    }
+  }
+
   const finishPartyTurn = async (party) => {
     if (advancingRef.current) return
     advancingRef.current = true
@@ -466,13 +475,13 @@ export default function App() {
       if (party === 'claimant') {
         setClaimantDone(true)
         setFloor('defendant')
-        await speakCourtScript(
+        await broadcastJudge(
           `Thank you, ${party1Name}. Please remain seated. ${party2Name}, the floor is yours. Please state your name, then begin your reply.`,
         )
       } else if (party === 'defendant') {
         setDefendantDone(true)
         setFloor('closed')
-        await speakCourtScript(
+        await broadcastJudge(
           `Thank you, ${party2Name}. Both parties have been heard. This session is ended. The court will now render judgment.`,
         )
         await beginVerdict()
@@ -497,7 +506,7 @@ export default function App() {
     setStage(1)
     const opening = `This court is now in session for Case ${id}, under ${venueLabel} micro-claims rules. ${p1}, please state your name and the case, then begin your testimony when ready.`
     window.setTimeout(async () => {
-      await speakCourtScript(opening)
+      await broadcastJudge(opening)
       setFloor('claimant')
     }, 400)
   }
@@ -701,6 +710,7 @@ export default function App() {
           : undefined
       }
     >
+      <GavelCursor />
       <div className="relative mx-auto w-full max-w-[1600px]">
         <AppHeader
           caseId={caseId}
