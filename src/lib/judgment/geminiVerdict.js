@@ -50,6 +50,7 @@ Rules:
 - If both testimonies are empty or only court directions, set outcome to "dismissed". faultSplit must be claimant 0 and defendant 0. Damages $0. A failed burden of proof is a dismissal — do NOT mark either party at fault.
 - faultSplit is percent responsibility for the loss. It must sum to 100 unless dismissed (then both 0).
 - Spoken verdict: 8-14 spoken sentences, first person as the judge, no markdown.
+- List 2 to 5 key facts the decision relies on. For each fact give who said it (claimant or defendant) and a short exact quote of 4 to 15 words copied from their testimony. If there are no supporting words, do not list the fact.
 
 Return ONLY JSON with this shape:
 {
@@ -63,6 +64,9 @@ Return ONLY JSON with this shape:
     { "title": "real statute or rule name", "note": "why it applies here" }
   ],
   "spokenVerdict": "full oral judgment",
+  "findings": [
+    { "fact": "one key fact", "party": "claimant | defendant", "quote": "4 to 15 words from testimony" }
+  ],
   "disputeCategory": "${disputeCategory}"
 }`
 }
@@ -112,6 +116,18 @@ const VERDICT_RESPONSE_SCHEMA = {
       },
     },
     spokenVerdict: { type: 'STRING' },
+    findings: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          fact: { type: 'STRING' },
+          party: { type: 'STRING', enum: ['claimant', 'defendant'] },
+          quote: { type: 'STRING' },
+        },
+        required: ['fact', 'party', 'quote'],
+      },
+    },
     disputeCategory: { type: 'STRING' },
   },
   required: [
@@ -123,7 +139,21 @@ const VERDICT_RESPONSE_SCHEMA = {
     'faultSplit',
     'lawsDetail',
     'spokenVerdict',
+    'findings',
   ],
+}
+
+const APPEAL_RESPONSE_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    agrees: { type: 'BOOLEAN' },
+    confidence: { type: 'STRING', enum: ['high', 'medium', 'low'] },
+    concerns: {
+      type: 'ARRAY',
+      items: { type: 'STRING' },
+    },
+  },
+  required: ['agrees', 'confidence', 'concerns'],
 }
 
 function parseModelJson(raw) {
@@ -135,37 +165,66 @@ function parseModelJson(raw) {
   return JSON.parse(cleaned.slice(start, end + 1))
 }
 
-async function callModel(apiKey, model, prompt, extraParts = [], useSchema = true) {
+function cleanFindings(raw) {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((item) => ({
+      fact: String(item?.fact || '').trim(),
+      party: item?.party === 'defendant' ? 'defendant' : 'claimant',
+      quote: String(item?.quote || '').trim(),
+    }))
+    .filter((item) => item.fact && item.quote)
+    .slice(0, 6)
+}
+
+async function callModel(
+  apiKey,
+  model,
+  prompt,
+  extraParts = [],
+  useSchema = true,
+  schema = VERDICT_RESPONSE_SCHEMA,
+  timeoutMs = 0,
+) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
   const generationConfig = {
     temperature: 0.25,
     responseMimeType: 'application/json',
   }
-  if (useSchema) generationConfig.responseSchema = VERDICT_RESPONSE_SCHEMA
+  if (useSchema) generationConfig.responseSchema = schema
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-goog-api-key': apiKey,
-    },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }, ...extraParts] }],
-      generationConfig,
-    }),
-  })
+  const controller = timeoutMs > 0 ? new AbortController() : null
+  const timer =
+    controller && setTimeout(() => controller.abort(), timeoutMs)
 
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) {
-    const msg = payload?.error?.message || `Gemini ${model} failed (${response.status})`
-    throw new Error(msg)
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
+      },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }, ...extraParts] }],
+        generationConfig,
+      }),
+      signal: controller?.signal,
+    })
+
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      const msg = payload?.error?.message || `Gemini ${model} failed (${response.status})`
+      throw new Error(msg)
+    }
+
+    const text = payload?.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text || '')
+      .join('')
+      .trim()
+    return parseModelJson(text)
+  } finally {
+    if (timer) clearTimeout(timer)
   }
-
-  const text = payload?.candidates?.[0]?.content?.parts
-    ?.map((part) => part.text || '')
-    .join('')
-    .trim()
-  return parseModelJson(text)
 }
 
 export async function decideWithGemini(claimantText, defendantText, context) {
@@ -220,6 +279,8 @@ export async function decideWithGemini(claimantText, defendantText, context) {
         lawsDetail,
         lawsCited: lawsDetail.map((law) => law.title),
         spokenVerdict: String(data.spokenVerdict || data.verdictSummary || '').trim(),
+        findings: cleanFindings(data.findings),
+        model,
         disputeCategory: data.disputeCategory || context.disputeCategory,
         engine: 'gemini',
         engineLabel: `Gemini · ${model}`,
@@ -231,4 +292,64 @@ export async function decideWithGemini(claimantText, defendantText, context) {
   }
 
   throw lastError || new Error('Gemini verdict failed')
+}
+
+export async function reviewVerdictWithGemini(claimantText, defendantText, verdict) {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
+  if (!apiKey) return null
+  if (!verdict || verdict.outcome === 'dismissed') return null
+
+  const prompt = `You are a skeptical appeal reviewer for a student hackathon mock court. This is NOT real legal advice.
+Read both testimonies and the draft verdict. Decide whether the outcome follows from what was said, whether the money is supported, and whether it relies on facts nobody said.
+
+CLAIMANT TESTIMONY:
+${claimantText || '(none recorded)'}
+
+DEFENDANT TESTIMONY:
+${defendantText || '(none recorded)'}
+
+DRAFT VERDICT:
+outcome: ${verdict.outcome || ''}
+faultSplit: claimant ${verdict.faultSplit?.claimant ?? ''} / defendant ${verdict.faultSplit?.defendant ?? ''}
+award: ${verdict.damagesAwarded || ''}
+reason: ${verdict.awardReason || verdict.verdictSummary || ''}
+
+Return ONLY JSON:
+{
+  "agrees": true,
+  "confidence": "high | medium | low",
+  "concerns": ["short concern"]
+}`
+
+  for (const model of MODELS.slice(0, 2)) {
+    try {
+      let data
+      try {
+        data = await callModel(
+          apiKey,
+          model,
+          prompt,
+          [],
+          true,
+          APPEAL_RESPONSE_SCHEMA,
+          12000,
+        )
+      } catch {
+        data = await callModel(apiKey, model, prompt, [], false, APPEAL_RESPONSE_SCHEMA, 12000)
+      }
+      const confidence = String(data?.confidence || '').toLowerCase()
+      return {
+        agrees: Boolean(data?.agrees),
+        confidence:
+          confidence === 'high' || confidence === 'low' ? confidence : 'medium',
+        concerns: Array.isArray(data?.concerns)
+          ? data.concerns.map((item) => String(item).trim()).filter(Boolean).slice(0, 3)
+          : [],
+      }
+    } catch (error) {
+      console.warn(`Appeal review ${model} failed:`, error)
+    }
+  }
+
+  return null
 }
