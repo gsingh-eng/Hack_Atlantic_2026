@@ -1,11 +1,6 @@
-/**
- * Drop a screen recording at src/assets/training/hearing-walkthrough.mp4
- * then import it here:
- *
- *   import hearingWalkthrough from '../../../assets/training/hearing-walkthrough.mp4'
- *   export const TRAINING_VIDEO_SRC = hearingWalkthrough
- */
-export const TRAINING_VIDEO_SRC = ''
+import hearingWalkthrough from '../../../assets/training/VERITAS_AI.mp4'
+
+export const TRAINING_VIDEO_SRC = hearingWalkthrough
 
 export const TRAINING_STEPS = [
   {
