@@ -26,3 +26,17 @@ npm run dev
 Open the URL Vite prints (often `http://localhost:5173` or `5175`).
 
 Copy `.env.example` to `.env` and add `VITE_GEMINI_API_KEY`. Do not commit `.env`.
+
+## Snowflake (Hack Atlantic side track)
+
+The live booth does not call Snowflake. After a hearing, we export the record-check scores and load them into Snowsight as `VERITAS.PUBLIC.HEARINGS`. SQL in [`snowflake/audit.sql`](snowflake/audit.sql) audits the AI judge: invented quotes vs quotes on the record, whether the second look agreed, and outcomes by category.
+
+Sample export: [`snowflake/hearings.csv`](snowflake/hearings.csv).
+
+Quotes checked vs on the record (0 invented in this sample):
+
+![Quote audit in Snowsight](snowflake/audit-quotes.png)
+
+Cases by category:
+
+![Outcomes by category in Snowsight](snowflake/audit-outcomes.png)

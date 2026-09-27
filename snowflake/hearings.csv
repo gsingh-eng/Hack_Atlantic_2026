@@ -1,0 +1,4 @@
+case_id,province,category,outcome,award,facts_checked,facts_on_record,laws_checked,laws_verified,appeal_agrees,appeal_confidence
+VER-08XGGJ,New Brunswick,loan,claimant_wins,600,2,2,1,1,yes,high
+VER-1QPF4I,New Brunswick,partnership_prize,claimant_wins,600,2,2,1,1,,
+VER-Z0II6V,New Brunswick,shared_property,claimant_wins,600,0,0,1,1,,
